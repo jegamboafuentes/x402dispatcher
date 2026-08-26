@@ -1,0 +1,10 @@
+---
+description: Standards for x402 backend integration and the Coinbase CDP SDK
+globs: src/**/*.ts
+alwaysApply: false
+---
+- Always use Node.js and TypeScript for backend routing.
+- Use `@coinbase/cdp-sdk` for all x402 discovery and wallet functions.
+- Use the `fetchWithPayment` utility from `x402-fetch` to handle HTTP 402 responses automatically.
+- Do not manually construct HTTP 402 retry loops; always rely on the SDK middleware.
+- Reference canonical examples from the `@coinbase/cdp-sdk` documentation rather than guessing implementations.

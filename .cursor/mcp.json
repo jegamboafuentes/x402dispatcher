@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "coinbase-cdp": {
+      "url": "https://docs.cdp.coinbase.com/mcp"
+    },
+    "proxy402": {
+      "command": "npx",
+      "args": ["tsx", "src/index.ts"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

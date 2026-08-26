@@ -1,0 +1,7 @@
+---
+description: Security guidelines for programmatic wallets and private keys
+alwaysApply: true
+---
+- Never hardcode the `CDP_PRIVATE_KEY` or any wallet credentials in the codebase.
+- Always load wallet credentials strictly from the `.env` file.
+- Before signing any automated transaction, ensure there is a strict `MAX_PRICE_USD` check in the code to prevent draining the treasury.
