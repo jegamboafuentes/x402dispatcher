@@ -19,7 +19,7 @@ async function main() {
     process.stderr.write(chunk);
   });
 
-  const client = new Client({ name: "proxy402-mcp-test", version: "1.0.0" });
+  const client = new Client({ name: "x402dispatcher-mcp-test", version: "1.0.0" });
   await client.connect(transport);
 
   const listed = await client.listTools();

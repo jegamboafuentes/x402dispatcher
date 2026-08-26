@@ -50,6 +50,31 @@ export function getDiscoveryLimit(): number {
   return parsed;
 }
 
+export function getVerifiedMinSamples(): number {
+  const raw = process.env.VERIFIED_MIN_SAMPLES;
+  if (raw === undefined || raw === "") {
+    return 2;
+  }
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error("VERIFIED_MIN_SAMPLES must be an integer >= 1");
+  }
+  return parsed;
+}
+
+/** Minimum success rate (0–1) for the verified tier. */
+export function getVerifiedMinSuccessRate(): number {
+  const raw = process.env.VERIFIED_MIN_SUCCESS_RATE;
+  if (raw === undefined || raw === "") {
+    return 0.8;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    throw new Error("VERIFIED_MIN_SUCCESS_RATE must be between 0 and 1");
+  }
+  return parsed;
+}
+
 export function assertWithinSpendLimit(priceUsd: number): void {
   const maxPriceUsd = getMaxPriceUsd();
   if (priceUsd > maxPriceUsd) {

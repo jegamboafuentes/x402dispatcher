@@ -6,6 +6,8 @@ import {
   getDiscoveryLimit,
   getMarkupBps,
   getMaxPriceUsd,
+  getVerifiedMinSamples,
+  getVerifiedMinSuccessRate,
 } from "./config.js";
 import {
   discoverApis,
@@ -18,13 +20,27 @@ import {
   getPayerAddress,
   settleSimulatedMbtaPayment,
 } from "./payment.js";
-import { buildRouteCandidates, routeAndCall } from "./routing.js";
+import { buildRouteCandidates, routeAndCall, type RouteTier } from "./routing.js";
+import {
+  getStatsForUrl,
+  getStatsPath,
+  listAllStats,
+  listVerifiedStats,
+  recordOutcome,
+} from "./stats.js";
 
 dotenv.config({ quiet: true });
 
+const tierSchema = z
+  .enum(["economy", "verified"])
+  .optional()
+  .describe(
+    'Routing tier: "economy" = cheapest first (V3); "verified" = reliability-scored APIs with enough successful history (V4)',
+  );
+
 const server = new McpServer({
-  name: "proxy402",
-  version: "3.0.0",
+  name: "x402dispatcher",
+  version: "4.0.0",
 });
 
 const catalog = new Map<string, DiscoveredApi>();
@@ -61,6 +77,33 @@ async function fetchMbtaPredictions(stopId: string): Promise<unknown> {
   return response.json();
 }
 
+async function callWithStats(
+  api: DiscoveredApi,
+  args: { query?: Record<string, unknown>; body?: Record<string, unknown> },
+  task?: string,
+) {
+  const started = Date.now();
+  try {
+    const result = await callDiscoveredApi(api, args);
+    const stats = recordOutcome({
+      url: api.url,
+      ok: true,
+      latencyMs: Date.now() - started,
+      task,
+    });
+    return { ...result, stats };
+  } catch (error) {
+    recordOutcome({
+      url: api.url,
+      ok: false,
+      latencyMs: Date.now() - started,
+      task,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
 function registerCatalogTools(apis: DiscoveredApi[]) {
   catalog.clear();
 
@@ -75,7 +118,7 @@ function registerCatalogTools(apis: DiscoveredApi[]) {
       {
         title: api.toolName,
         description: [
-          `[Proxy402 · $${totalUsd.toFixed(4)} incl. markup]`,
+          `[x402dispatcher · $${totalUsd.toFixed(4)} incl. markup]`,
           api.description,
           `Upstream: ${api.url}`,
           `Method: ${api.method}`,
@@ -98,7 +141,7 @@ function registerCatalogTools(apis: DiscoveredApi[]) {
       },
       async ({ query, body }) => {
         try {
-          const result = await callDiscoveredApi(api, { query, body });
+          const result = await callWithStats(api, { query, body }, api.toolName);
           return toolOk(result);
         } catch (error) {
           return toolError(api.toolName, error);
@@ -113,12 +156,13 @@ server.registerTool(
   {
     title: "Quote Route",
     description:
-      "V3: Search the x402 Bazaar for APIs matching a task, rank by total price (upstream + markup), and return the cheapest plan without paying.",
+      "V4: Search the x402 Bazaar for APIs matching a task and rank them. tier=economy sorts by price; tier=verified keeps only reliable APIs and ranks by success/latency/price score. Does not pay.",
     inputSchema: {
       task: z
         .string()
         .min(1)
         .describe('Natural-language task, for example "weather in Boston" or "token balance"'),
+      tier: tierSchema,
       max_price_usd: z
         .number()
         .nonnegative()
@@ -133,21 +177,29 @@ server.registerTool(
         .describe("Max ranked candidates to return (default 10)"),
     },
   },
-  async ({ task, max_price_usd, limit }) => {
+  async ({ task, tier, max_price_usd, limit }) => {
     try {
+      const selectedTier: RouteTier = tier ?? "economy";
       const budget = Math.min(max_price_usd ?? getMaxPriceUsd(), getMaxPriceUsd());
       const candidates = await buildRouteCandidates({
         task,
         maxPriceUsd: budget,
         limit: limit ?? 10,
+        tier: selectedTier,
       });
       rememberApis(candidates.map((c) => c.api));
       const publicCandidates = candidates.map(({ api: _api, ...rest }) => rest);
       return toolOk({
         task: task.trim(),
+        tier: selectedTier,
         max_price_usd: budget,
         markup_bps: getMarkupBps(),
+        verified_policy: {
+          min_samples: getVerifiedMinSamples(),
+          min_success_rate: getVerifiedMinSuccessRate(),
+        },
         candidate_count: publicCandidates.length,
+        best: publicCandidates[0],
         cheapest: publicCandidates[0],
         candidates: publicCandidates,
       });
@@ -162,12 +214,13 @@ server.registerTool(
   {
     title: "Route and Call",
     description:
-      "V3: Find Base Sepolia x402 APIs for a task, pick the cheapest under budget (incl. markup), pay and call it. On failure, failover to the next-cheapest candidates.",
+      "V4: Route a task to a Base Sepolia x402 API, pay, and return data. economy = cheapest; verified = reliability-scored. Records latency/success for the Verified tier. Failover on errors.",
     inputSchema: {
       task: z
         .string()
         .min(1)
         .describe('Natural-language task, for example "current weather for Boston"'),
+      tier: tierSchema,
       max_price_usd: z
         .number()
         .nonnegative()
@@ -179,7 +232,7 @@ server.registerTool(
         .min(1)
         .max(5)
         .optional()
-        .describe("How many cheapest candidates to try on failure (default 3)"),
+        .describe("How many candidates to try on failure (default 3)"),
       query: z
         .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
         .optional()
@@ -190,11 +243,12 @@ server.registerTool(
         .describe("Optional JSON body overrides"),
     },
   },
-  async ({ task, max_price_usd, max_attempts, query, body }) => {
+  async ({ task, tier, max_price_usd, max_attempts, query, body }) => {
     try {
       const budget = Math.min(max_price_usd ?? getMaxPriceUsd(), getMaxPriceUsd());
       const result = await routeAndCall({
         task,
+        tier: tier ?? "economy",
         maxPriceUsd: budget,
         maxAttempts: max_attempts ?? 3,
         query,
@@ -204,6 +258,73 @@ server.registerTool(
     } catch (error) {
       return toolError("route_and_call", error);
     }
+  },
+);
+
+server.registerTool(
+  "get_api_stats",
+  {
+    title: "Get API Stats",
+    description:
+      "V4: Show local success rate and latency stats collected from x402dispatcher paid calls. Omit url to list all.",
+    inputSchema: {
+      url: z
+        .string()
+        .url()
+        .optional()
+        .describe("Optional upstream resource URL to inspect"),
+    },
+  },
+  async ({ url }) => {
+    try {
+      if (url) {
+        const stats = getStatsForUrl(url);
+        if (!stats) {
+          return toolOk({ url, found: false, message: "No local stats for this URL yet" });
+        }
+        return toolOk({
+          found: true,
+          stats_path: getStatsPath(),
+          verified_policy: {
+            min_samples: getVerifiedMinSamples(),
+            min_success_rate: getVerifiedMinSuccessRate(),
+          },
+          stats,
+        });
+      }
+      return toolOk({
+        stats_path: getStatsPath(),
+        verified_policy: {
+          min_samples: getVerifiedMinSamples(),
+          min_success_rate: getVerifiedMinSuccessRate(),
+        },
+        count: listAllStats().length,
+        apis: listAllStats(),
+      });
+    } catch (error) {
+      return toolError("get_api_stats", error);
+    }
+  },
+);
+
+server.registerTool(
+  "list_verified_apis",
+  {
+    title: "List Verified APIs",
+    description:
+      "V4: List upstream APIs that currently qualify for the Verified routing tier based on local success/latency history.",
+  },
+  async () => {
+    const verified = listVerifiedStats();
+    return toolOk({
+      count: verified.length,
+      verified_policy: {
+        min_samples: getVerifiedMinSamples(),
+        min_success_rate: getVerifiedMinSuccessRate(),
+      },
+      stats_path: getStatsPath(),
+      apis: verified,
+    });
   },
 );
 
@@ -239,6 +360,7 @@ server.registerTool(
         results: apis.map((api) => ({
           ...summarizeApi(api),
           total_price_usd: estimateTotalUsd(api.upstreamPriceUsd),
+          stats: getStatsForUrl(api.url),
         })),
       });
     } catch (error) {
@@ -252,18 +374,19 @@ server.registerTool(
   {
     title: "List Discovered APIs",
     description:
-      "List Proxy402 APIs currently registered from Bazaar discovery (Base Sepolia, within MAX_PRICE_USD).",
+      "List x402dispatcher APIs currently registered from Bazaar discovery (Base Sepolia, within MAX_PRICE_USD).",
   },
   async () => {
     const unique = [...new Map([...catalog.values()].map((api) => [api.url, api])).values()];
     return toolOk({
-      version: "3.0.0",
+      version: "4.0.0",
       count: unique.length,
       max_price_usd: getMaxPriceUsd(),
       markup_bps: getMarkupBps(),
       apis: unique.map((api) => ({
         ...summarizeApi(api),
         total_price_usd: estimateTotalUsd(api.upstreamPriceUsd),
+        stats: getStatsForUrl(api.url),
       })),
     });
   },
@@ -274,7 +397,7 @@ server.registerTool(
   {
     title: "Call x402 API",
     description:
-      "Pay for and call a discovered Bazaar HTTP resource through the Proxy402 treasury. Pass tool_name from list_discovered_apis / search_bazaar, or a full resource URL.",
+      "Pay for and call a discovered Bazaar HTTP resource through the x402dispatcher treasury. Pass tool_name from list_discovered_apis / search_bazaar, or a full resource URL.",
     inputSchema: {
       tool_name_or_url: z
         .string()
@@ -311,7 +434,7 @@ server.registerTool(
           `Unknown API "${tool_name_or_url}". Run search_bazaar, quote_route, or list_discovered_apis first.`,
         );
       }
-      const result = await callDiscoveredApi(api, { query, body });
+      const result = await callWithStats(api, { query, body }, tool_name_or_url);
       return toolOk(result);
     } catch (error) {
       return toolError("call_x402_api", error);
@@ -324,7 +447,7 @@ server.registerTool(
   {
     title: "Get MBTA Predictions",
     description:
-      "V1 demo tool: settle a $0.01 USDC Base Sepolia payment through the Proxy402 treasury, then return live MBTA arrival predictions for a stop.",
+      "V1 demo tool: settle a $0.01 USDC Base Sepolia payment through the x402dispatcher treasury, then return live MBTA arrival predictions for a stop.",
     inputSchema: {
       stop_id: z
         .string()
@@ -345,8 +468,9 @@ server.registerTool(
 
 async function main() {
   console.error(
-    `Proxy402 V3 starting (MAX_PRICE_USD=${getMaxPriceUsd()}, MARKUP_BPS=${getMarkupBps()}, DISCOVERY_LIMIT=${getDiscoveryLimit()})`,
+    `x402dispatcher V4 starting (MAX_PRICE_USD=${getMaxPriceUsd()}, MARKUP_BPS=${getMarkupBps()}, DISCOVERY_LIMIT=${getDiscoveryLimit()}, VERIFIED_MIN_SAMPLES=${getVerifiedMinSamples()}, VERIFIED_MIN_SUCCESS_RATE=${getVerifiedMinSuccessRate()})`,
   );
+  console.error(`Stats store: ${getStatsPath()}`);
 
   try {
     const payer = await getPayerAddress();
@@ -369,7 +493,7 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Proxy402 MCP server running on stdio (V3)");
+  console.error("x402dispatcher MCP server running on stdio (V4)");
 }
 
 main().catch((error) => {

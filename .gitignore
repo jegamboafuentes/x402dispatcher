@@ -29,3 +29,5 @@ coverage/
 
 # Local test artifacts
 .tmp/
+data/
+

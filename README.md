@@ -2,7 +2,7 @@
 
 Local **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
 
-This repo is currently at **V3**.
+This repo is currently at **V4**.
 
 ---
 
@@ -10,13 +10,13 @@ This repo is currently at **V3**.
 
 AI agents are good at reasoning and tool use, but bad at paying for APIs. The [x402](https://x402.org) protocol turns HTTP `402 Payment Required` into a programmable stablecoin micropayment rail (typically USDC).
 
-**Proxy402** sits in the middle as a solo-operator friendly aggregator:
+**x402dispatcher** sits in the middle as a solo-operator friendly aggregator:
 
 | Idea | What it means |
 |---|---|
 | Discovery | Query the public Coinbase x402 Bazaar catalog |
 | MCP integration | Expose discovered APIs as MCP tools for Cursor / agents |
-| Proxy execution | Sign and settle payment from a treasury wallet via `@coinbase/cdp-sdk` |
+| Dispatch | Sign and settle payment from a treasury wallet via `@coinbase/cdp-sdk` |
 | Monetization | Apply a micro-markup on top of upstream cost and retain the spread |
 
 Funds move wallet → merchant. The platform does not custody buyer funds.
@@ -29,9 +29,24 @@ Funds move wallet → merchant. The platform does not custody buyer funds.
 |---|---|---|
 | **V1** | Done | Manually wrap one paid-style flow (MBTA demo + $0.01 USDC testnet settle) |
 | **V2** | Done | Auto-discover Base Sepolia Bazaar APIs and wrap many as MCP tools with real x402 payment |
-| **V3** | **Current** | Smart arbitrage: search, compare prices, pick cheapest API for a task (with failover) |
-| **V4** | Planned | Track success/latency; curated “Verified” routing tier |
+| **V3** | Done | Smart arbitrage: search, compare prices, pick cheapest API for a task (with failover) |
+| **V4** | **Current** | Track success/latency; economy vs verified routing tiers |
 | **V5** | Planned | Cloud host, public registries, `agent.json` for crawlers |
+
+---
+
+## What V4 does
+
+On top of V3 routing, V4 records every paid call’s success and latency in `data/api-stats.json`, then offers two tiers:
+
+| Tier | Behavior |
+|---|---|
+| `economy` | Cheapest first (V3 behavior) |
+| `verified` | Only APIs with enough successful history; ranked by reliability/latency/price score |
+
+Thresholds (env): `VERIFIED_MIN_SAMPLES` (default `2`), `VERIFIED_MIN_SUCCESS_RATE` (default `0.8`).
+
+New tools: `get_api_stats`, `list_verified_apis`. `quote_route` / `route_and_call` accept optional `tier`.
 
 ---
 
@@ -74,10 +89,12 @@ V1 `get_mbta_predictions` still proves a fixed $0.01 USDC Base Sepolia transfer,
 Agent / Cursor
     │  MCP (stdio)
     ▼
-Proxy402 MCP server (src/index.ts)
+x402dispatcher MCP server (src/index.ts)
     │
     ├─ Discovery  → listX402DiscoveryResources / searchX402Resources (@coinbase/cdp-sdk)
     ├─ Payment    → CdpX402Client + wrapFetchWithPayment (@coinbase/cdp-sdk/x402, @x402/fetch)
+    ├─ Routing    → economy (price) / verified (stats score) with failover
+    ├─ Stats      → data/api-stats.json success + latency history
     ├─ Guardrails → MAX_PRICE_USD (+ SDK spend controls)
     └─ Markup     → MARKUP_BPS applied; optional USDC transfer to Merchant account
     │
@@ -108,8 +125,8 @@ Upstream x402 HTTP API (Bazaar listing)
 ## Setup
 
 ```bash
-git clone https://github.com/<your-user>/Proxy402.git
-cd Proxy402
+git clone https://github.com/jegamboafuentes/x402dispatcher.git
+cd x402dispatcher
 npm install
 cp .env.example .env
 # edit .env with your CDP credentials
@@ -125,7 +142,9 @@ cp .env.example .env
 | `MAX_PRICE_USD` | Recommended | Hard cap before any automated spend (e.g. `0.01`) |
 | `MARKUP_BPS` | Optional | Markup in basis points (default `1000` = 10%) |
 | `DISCOVERY_LIMIT` | Optional | Max Bazaar tools to register at startup (default `40`, max `100`) |
-| `CDP_PRIVATE_KEY` | Optional | Only if you import a specific EOA into CDP (not used by default V2 payer path) |
+| `VERIFIED_MIN_SAMPLES` | Optional | Min successful-history calls for Verified (default `2`) |
+| `VERIFIED_MIN_SUCCESS_RATE` | Optional | Min success rate 0–1 for Verified (default `0.8`) |
+| `CDP_PRIVATE_KEY` | Optional | Only if you import a specific EOA into CDP (not used by default V2+ payer path) |
 
 Never commit `.env`. Only `.env.example` is tracked.
 
@@ -154,7 +173,7 @@ Project file: `.cursor/mcp.json` (already included). Cursor should spawn:
 ```json
 {
   "mcpServers": {
-    "proxy402": {
+    "x402dispatcher": {
       "command": "npx",
       "args": ["tsx", "src/index.ts"],
       "cwd": "${workspaceFolder}"
@@ -173,8 +192,10 @@ Reload MCP in Cursor after clone/install. If `${workspaceFolder}` is not expande
 
 | Tool | Purpose |
 |---|---|
-| `quote_route` | **V3** — Rank matching APIs by total price; no payment |
-| `route_and_call` | **V3** — Pay and call the cheapest match; failover on errors |
+| `quote_route` | Rank matching APIs; `tier=economy\|verified`; no payment |
+| `route_and_call` | Pay/call best match for tier; failover; records stats |
+| `get_api_stats` | **V4** — local success/latency history |
+| `list_verified_apis` | **V4** — APIs that currently qualify as Verified |
 | `search_bazaar` | Semantic/text search of Base Sepolia Bazaar APIs under `MAX_PRICE_USD` |
 | `list_discovered_apis` | List APIs currently cached/registered |
 | `call_x402_api` | Pay + call by `tool_name` or full resource URL |
@@ -182,57 +203,61 @@ Reload MCP in Cursor after clone/install. If `${workspaceFolder}` is not expande
 
 ### Dynamic tools
 
-At startup, Proxy402 also registers one MCP tool per discovered Bazaar resource (names like `x402_<host>_<path>_<n>`). Each accepts optional `query` / `body` and pays the upstream URL.
+At startup, x402dispatcher also registers one MCP tool per discovered Bazaar resource (names like `x402_<host>_<path>_<n>`). Each accepts optional `query` / `body` and pays the upstream URL.
 
 ---
 
 ## Testing
 
-### V3 end-to-end (recommended)
+### V4 end-to-end (recommended)
 
-Quotes a weather route (sorted by price), then `route_and_call` pays the cheapest:
+Seeds two economy weather calls, promotes the winner into Verified, then quotes/routes with `tier=verified`:
+
+```bash
+npm run test:v4
+```
+
+Expect: `V4 SMOKE TEST PASSED`
+
+### Earlier versions
 
 ```bash
 npm run test:v3
-```
-
-Expect: `V3 SMOKE TEST PASSED`
-
-### V2 regression
-
-```bash
 npm run test:v2
 ```
 
 ### Manual checks in Cursor
 
-1. Enable / reload the `proxy402` MCP server
-2. Ask: “Quote the cheapest x402 weather API” → should use `quote_route`
-3. Ask: “Get weather for Boston using the cheapest x402 API” → should use `route_and_call`
-4. Confirm response includes `chosen`, `attempts`, `payment`, and `data`
-5. Optional: confirm Treasury USDC decreased on [Base Sepolia explorer](https://sepolia.basescan.org/)
+1. Reload the `x402dispatcher` MCP server
+2. Ask for weather with economy routing a couple of times (builds stats)
+3. Ask: “List verified APIs” / “Get API stats”
+4. Ask: “Use the verified tier to get weather for Boston”
+5. Confirm `chosen.verified` is true and `data/api-stats.json` grew
 
 ### Guardrail check
 
-Set `MAX_PRICE_USD` below a listing’s total (upstream + markup) and confirm quote/route refuse or return zero candidates.
+Set `MAX_PRICE_USD` below a listing’s total and confirm quote/route refuse or return zero candidates.
 
 ---
 
 ## Project layout
 
 ```
-Proxy402/
+x402dispatcher/
 ├── src/
 │   ├── index.ts       # MCP server, tool registration
 │   ├── discovery.ts   # Bazaar list/search → DiscoveredApi
 │   ├── payment.ts     # CdpX402Client, markup, MBTA settle
-│   ├── routing.ts     # V3 quote + cheapest route + failover
-│   └── config.ts      # MAX_PRICE_USD, MARKUP_BPS, network constants
+│   ├── routing.ts     # quote + economy/verified route + failover
+│   ├── stats.ts       # V4 local success/latency store
+│   └── config.ts      # MAX_PRICE_USD, MARKUP_BPS, verified thresholds
 ├── scripts/
+│   ├── v4-smoke-test.ts
 │   ├── v3-smoke-test.ts
 │   ├── v2-smoke-test.ts
 │   ├── mcp-test.ts
 │   └── smoke-test.ts
+├── data/              # local api-stats.json (gitignored)
 ├── .cursor/
 │   ├── mcp.json
 │   └── rules/         # security + x402-stack agent rules

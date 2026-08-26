@@ -43,7 +43,7 @@ export function getPaymentClient(): CdpX402Client {
         },
         allowedNetworks: [NETWORK_CAIP2],
       },
-      builderCode: "proxy402",
+      builderCode: "x402dispatcher",
     });
   }
   return paymentClient;

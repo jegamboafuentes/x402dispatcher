@@ -24,7 +24,7 @@ async function main() {
     process.stderr.write(chunk);
   });
 
-  const client = new Client({ name: "proxy402-v2-test", version: "2.0.0" });
+  const client = new Client({ name: "x402dispatcher-v2-test", version: "2.0.0" });
   await client.connect(transport);
 
   const listed = await client.listTools();

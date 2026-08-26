@@ -1,16 +1,25 @@
 {
-  "name": "proxy402",
-  "version": "3.0.0",
-  "description": "x402 Bazaar aggregator MCP server with smart cheapest-route arbitrage",
+  "name": "x402dispatcher",
+  "version": "4.0.0",
+  "description": "x402 Bazaar aggregator MCP server with cheapest + verified routing tiers",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
     "test:v2": "tsx scripts/v2-smoke-test.ts",
     "test:v3": "tsx scripts/v3-smoke-test.ts",
-    "test": "tsx scripts/v3-smoke-test.ts"
+    "test:v4": "tsx scripts/v4-smoke-test.ts",
+    "test": "tsx scripts/v4-smoke-test.ts"
   },
-  "keywords": [],
+  "keywords": [
+    "x402",
+    "mcp",
+    "coinbase",
+    "cdp",
+    "bazaar",
+    "usdc",
+    "agentic"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {

@@ -3,7 +3,7 @@
     "coinbase-cdp": {
       "url": "https://docs.cdp.coinbase.com/mcp"
     },
-    "proxy402": {
+    "x402dispatcher": {
       "command": "npx",
       "args": ["tsx", "src/index.ts"],
       "cwd": "${workspaceFolder}"
