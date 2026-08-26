@@ -1,13 +1,14 @@
 {
   "name": "proxy402",
-  "version": "2.0.0",
-  "description": "",
+  "version": "3.0.0",
+  "description": "x402 Bazaar aggregator MCP server with smart cheapest-route arbitrage",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
     "test:v2": "tsx scripts/v2-smoke-test.ts",
-    "test": "tsx scripts/v2-smoke-test.ts"
+    "test:v3": "tsx scripts/v3-smoke-test.ts",
+    "test": "tsx scripts/v3-smoke-test.ts"
   },
   "keywords": [],
   "author": "",

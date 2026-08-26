@@ -18,12 +18,13 @@ import {
   getPayerAddress,
   settleSimulatedMbtaPayment,
 } from "./payment.js";
+import { buildRouteCandidates, routeAndCall } from "./routing.js";
 
 dotenv.config({ quiet: true });
 
 const server = new McpServer({
   name: "proxy402",
-  version: "2.0.0",
+  version: "3.0.0",
 });
 
 const catalog = new Map<string, DiscoveredApi>();
@@ -40,6 +41,13 @@ function toolOk(payload: unknown) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
   };
+}
+
+function rememberApis(apis: DiscoveredApi[]) {
+  for (const api of apis) {
+    catalog.set(api.toolName, api);
+    catalog.set(api.url, api);
+  }
 }
 
 async function fetchMbtaPredictions(stopId: string): Promise<unknown> {
@@ -67,7 +75,7 @@ function registerCatalogTools(apis: DiscoveredApi[]) {
       {
         title: api.toolName,
         description: [
-          `[Proxy402 V2 · $${totalUsd.toFixed(4)} incl. markup]`,
+          `[Proxy402 · $${totalUsd.toFixed(4)} incl. markup]`,
           api.description,
           `Upstream: ${api.url}`,
           `Method: ${api.method}`,
@@ -101,6 +109,105 @@ function registerCatalogTools(apis: DiscoveredApi[]) {
 }
 
 server.registerTool(
+  "quote_route",
+  {
+    title: "Quote Route",
+    description:
+      "V3: Search the x402 Bazaar for APIs matching a task, rank by total price (upstream + markup), and return the cheapest plan without paying.",
+    inputSchema: {
+      task: z
+        .string()
+        .min(1)
+        .describe('Natural-language task, for example "weather in Boston" or "token balance"'),
+      max_price_usd: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe("Optional per-call budget (clamped to MAX_PRICE_USD)"),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Max ranked candidates to return (default 10)"),
+    },
+  },
+  async ({ task, max_price_usd, limit }) => {
+    try {
+      const budget = Math.min(max_price_usd ?? getMaxPriceUsd(), getMaxPriceUsd());
+      const candidates = await buildRouteCandidates({
+        task,
+        maxPriceUsd: budget,
+        limit: limit ?? 10,
+      });
+      rememberApis(candidates.map((c) => c.api));
+      const publicCandidates = candidates.map(({ api: _api, ...rest }) => rest);
+      return toolOk({
+        task: task.trim(),
+        max_price_usd: budget,
+        markup_bps: getMarkupBps(),
+        candidate_count: publicCandidates.length,
+        cheapest: publicCandidates[0],
+        candidates: publicCandidates,
+      });
+    } catch (error) {
+      return toolError("quote_route", error);
+    }
+  },
+);
+
+server.registerTool(
+  "route_and_call",
+  {
+    title: "Route and Call",
+    description:
+      "V3: Find Base Sepolia x402 APIs for a task, pick the cheapest under budget (incl. markup), pay and call it. On failure, failover to the next-cheapest candidates.",
+    inputSchema: {
+      task: z
+        .string()
+        .min(1)
+        .describe('Natural-language task, for example "current weather for Boston"'),
+      max_price_usd: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe("Optional budget for this route (clamped to MAX_PRICE_USD)"),
+      max_attempts: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .optional()
+        .describe("How many cheapest candidates to try on failure (default 3)"),
+      query: z
+        .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+        .optional()
+        .describe("Optional query overrides; defaults to the listing example query"),
+      body: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe("Optional JSON body overrides"),
+    },
+  },
+  async ({ task, max_price_usd, max_attempts, query, body }) => {
+    try {
+      const budget = Math.min(max_price_usd ?? getMaxPriceUsd(), getMaxPriceUsd());
+      const result = await routeAndCall({
+        task,
+        maxPriceUsd: budget,
+        maxAttempts: max_attempts ?? 3,
+        query,
+        body,
+      });
+      return toolOk(result);
+    } catch (error) {
+      return toolError("route_and_call", error);
+    }
+  },
+);
+
+server.registerTool(
   "search_bazaar",
   {
     title: "Search x402 Bazaar",
@@ -123,10 +230,7 @@ server.registerTool(
   async ({ query, limit }) => {
     try {
       const apis = await discoverApis({ query, limit: limit ?? 10 });
-      for (const api of apis) {
-        catalog.set(api.toolName, api);
-        catalog.set(api.url, api);
-      }
+      rememberApis(apis);
       return toolOk({
         query,
         count: apis.length,
@@ -148,12 +252,12 @@ server.registerTool(
   {
     title: "List Discovered APIs",
     description:
-      "List Proxy402 V2 APIs currently registered from Bazaar discovery (Base Sepolia, within MAX_PRICE_USD).",
+      "List Proxy402 APIs currently registered from Bazaar discovery (Base Sepolia, within MAX_PRICE_USD).",
   },
   async () => {
     const unique = [...new Map([...catalog.values()].map((api) => [api.url, api])).values()];
     return toolOk({
-      version: "2.0.0",
+      version: "3.0.0",
       count: unique.length,
       max_price_usd: getMaxPriceUsd(),
       markup_bps: getMarkupBps(),
@@ -199,13 +303,12 @@ server.registerTool(
           refreshed.find((item) => item.toolName === tool_name_or_url) ??
           refreshed[0];
         if (api) {
-          catalog.set(api.toolName, api);
-          catalog.set(api.url, api);
+          rememberApis([api]);
         }
       }
       if (!api) {
         throw new Error(
-          `Unknown API "${tool_name_or_url}". Run search_bazaar or list_discovered_apis first.`,
+          `Unknown API "${tool_name_or_url}". Run search_bazaar, quote_route, or list_discovered_apis first.`,
         );
       }
       const result = await callDiscoveredApi(api, { query, body });
@@ -242,7 +345,7 @@ server.registerTool(
 
 async function main() {
   console.error(
-    `Proxy402 V2 starting (MAX_PRICE_USD=${getMaxPriceUsd()}, MARKUP_BPS=${getMarkupBps()}, DISCOVERY_LIMIT=${getDiscoveryLimit()})`,
+    `Proxy402 V3 starting (MAX_PRICE_USD=${getMaxPriceUsd()}, MARKUP_BPS=${getMarkupBps()}, DISCOVERY_LIMIT=${getDiscoveryLimit()})`,
   );
 
   try {
@@ -260,13 +363,13 @@ async function main() {
     console.error(`Discovered and registered ${apis.length} Base Sepolia x402 APIs`);
   } catch (error) {
     console.error(
-      `Warning: Bazaar discovery failed at startup (${error instanceof Error ? error.message : error}). search_bazaar still available.`,
+      `Warning: Bazaar discovery failed at startup (${error instanceof Error ? error.message : error}). quote_route / search_bazaar still available.`,
     );
   }
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Proxy402 MCP server running on stdio (V2)");
+  console.error("Proxy402 MCP server running on stdio (V3)");
 }
 
 main().catch((error) => {

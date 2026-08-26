@@ -2,7 +2,7 @@
 
 Local **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
 
-This repo is currently at **V2**.
+This repo is currently at **V3**.
 
 ---
 
@@ -28,10 +28,21 @@ Funds move wallet → merchant. The platform does not custody buyer funds.
 | Version | Status | Goal |
 |---|---|---|
 | **V1** | Done | Manually wrap one paid-style flow (MBTA demo + $0.01 USDC testnet settle) |
-| **V2** | **Current** | Auto-discover Base Sepolia Bazaar APIs and wrap many as MCP tools with real x402 payment |
-| **V3** | Planned | Smart arbitrage: search, compare prices, pick cheapest API for a task |
+| **V2** | Done | Auto-discover Base Sepolia Bazaar APIs and wrap many as MCP tools with real x402 payment |
+| **V3** | **Current** | Smart arbitrage: search, compare prices, pick cheapest API for a task (with failover) |
 | **V4** | Planned | Track success/latency; curated “Verified” routing tier |
 | **V5** | Planned | Cloud host, public registries, `agent.json` for crawlers |
+
+---
+
+## What V3 does
+
+On top of V2 discovery + payment, V3 adds a router:
+
+1. **`quote_route`** — search Bazaar for a natural-language task, rank candidates by **total price** (upstream + markup), return the plan **without paying**
+2. **`route_and_call`** — same ranking, pay and call the cheapest; on failure, try the next-cheapest (up to `max_attempts`)
+
+All spends remain gated by `MAX_PRICE_USD`.
 
 ---
 
@@ -162,6 +173,8 @@ Reload MCP in Cursor after clone/install. If `${workspaceFolder}` is not expande
 
 | Tool | Purpose |
 |---|---|
+| `quote_route` | **V3** — Rank matching APIs by total price; no payment |
+| `route_and_call` | **V3** — Pay and call the cheapest match; failover on errors |
 | `search_bazaar` | Semantic/text search of Base Sepolia Bazaar APIs under `MAX_PRICE_USD` |
 | `list_discovered_apis` | List APIs currently cached/registered |
 | `call_x402_api` | Pay + call by `tool_name` or full resource URL |
@@ -175,27 +188,33 @@ At startup, Proxy402 also registers one MCP tool per discovered Bazaar resource 
 
 ## Testing
 
-### V2 end-to-end (recommended)
+### V3 end-to-end (recommended)
 
-Spawns the MCP server over stdio, searches for weather, pays a real Base Sepolia listing, prints payment + data:
+Quotes a weather route (sorted by price), then `route_and_call` pays the cheapest:
+
+```bash
+npm run test:v3
+```
+
+Expect: `V3 SMOKE TEST PASSED`
+
+### V2 regression
 
 ```bash
 npm run test:v2
 ```
 
-Expect: `V2 SMOKE TEST PASSED`
-
 ### Manual checks in Cursor
 
 1. Enable / reload the `proxy402` MCP server
-2. Ask: “List discovered APIs” or “Search the bazaar for weather”
-3. Call a cheap tool or `call_x402_api`
-4. Confirm the response includes `payment` (upstream price, markup, settlement) and `data`
+2. Ask: “Quote the cheapest x402 weather API” → should use `quote_route`
+3. Ask: “Get weather for Boston using the cheapest x402 API” → should use `route_and_call`
+4. Confirm response includes `chosen`, `attempts`, `payment`, and `data`
 5. Optional: confirm Treasury USDC decreased on [Base Sepolia explorer](https://sepolia.basescan.org/)
 
 ### Guardrail check
 
-Set `MAX_PRICE_USD` below a listing’s total (upstream + markup) and confirm the call is refused.
+Set `MAX_PRICE_USD` below a listing’s total (upstream + markup) and confirm quote/route refuse or return zero candidates.
 
 ---
 
@@ -207,8 +226,10 @@ Proxy402/
 │   ├── index.ts       # MCP server, tool registration
 │   ├── discovery.ts   # Bazaar list/search → DiscoveredApi
 │   ├── payment.ts     # CdpX402Client, markup, MBTA settle
+│   ├── routing.ts     # V3 quote + cheapest route + failover
 │   └── config.ts      # MAX_PRICE_USD, MARKUP_BPS, network constants
 ├── scripts/
+│   ├── v3-smoke-test.ts
 │   ├── v2-smoke-test.ts
 │   ├── mcp-test.ts
 │   └── smoke-test.ts
