@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>x402dispatcher — operator console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/console/console.css" />
+  </head>
+  <body>
+    <div class="crt" aria-hidden="true"></div>
+    <main class="shell">
+      <header class="header">
+        <div class="prompt">
+          <span class="user">root@x402dispatcher</span>:<span class="path">~</span>$
+          <span class="cmd">./monitor --operator</span><span class="cursor" aria-hidden="true"></span>
+        </div>
+        <div class="meta" id="meta">booting…</div>
+      </header>
+
+      <section class="panel" id="wallets-panel">
+        <pre class="frame" id="wallets-frame">loading wallets…</pre>
+      </section>
+
+      <section class="panel" id="pnl-panel">
+        <pre class="frame" id="pnl-frame">loading pnl…</pre>
+      </section>
+
+      <section class="panel" id="ledger-panel">
+        <pre class="frame" id="ledger-frame">loading settlements…</pre>
+      </section>
+
+      <footer class="credits">
+        <div class="credits-line">── credits ──────────────────────────────────────────</div>
+        <div>
+          Run by
+          <a href="https://metaverseprofessional.tech/" target="_blank" rel="noopener noreferrer"
+            >https://metaverseprofessional.tech/</a
+          >
+        </div>
+        <div>
+          Developed by
+          <a href="https://enriquegamboa.info/" target="_blank" rel="noopener noreferrer"
+            >https://enriquegamboa.info/</a
+          >
+        </div>
+      </footer>
+    </main>
+    <script src="/console/console.js" defer></script>
+  </body>
+</html>

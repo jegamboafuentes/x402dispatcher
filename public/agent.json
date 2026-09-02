@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "7.0.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher with inbound paywall and cashflow ledger",
+  "version": "8.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher with operator console and cashflow ledger",
   "homepage": "https://github.com/jegamboafuentes/x402dispatcher",
   "schema_version": "0.1.0",
   "mcp": {

@@ -45,7 +45,7 @@ import {
   recordOutcome,
 } from "./stats.js";
 
-export const APP_VERSION = "7.0.0";
+export const APP_VERSION = "8.0.0";
 
 const tierSchema = z
   .enum(["economy", "verified"])
@@ -76,7 +76,7 @@ export async function warmDiscovery(): Promise<number> {
 
 export async function logStartupBanner(mode: "stdio" | "http"): Promise<void> {
   console.error(
-      `x402dispatcher V7 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()}`,
+      `x402dispatcher V8 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()}`,
   );
   console.error(`Stats store: ${getStatsPath()}`);
   console.error(`Cashflow ledger: ${getCashflowPath()}`);
@@ -672,16 +672,20 @@ export async function buildAgentJson(baseUrl: string) {
     name: "x402dispatcher",
     version: APP_VERSION,
     description:
-      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, and track cashflow (V7).",
+      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, track cashflow, and expose an operator console (V8).",
     homepage: origin,
     mcp: {
       transport: "streamable-http",
       url: `${origin}/mcp`,
     },
     endpoints: {
+      console: `${origin}/`,
       health: `${origin}/health`,
       agent_json: `${origin}/.well-known/agent.json`,
       mcp: `${origin}/mcp`,
+      wallets: `${origin}/v1/wallets`,
+      cashflow: `${origin}/v1/cashflow`,
+      pnl: `${origin}/v1/pnl`,
     },
     networks: [getNetworkCaip2()],
     payment: {

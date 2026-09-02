@@ -2,7 +2,7 @@
 
 Local **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
 
-This repo is currently at **V7** (cashflow ledger). V6 inbound paywall is live; use `X402_ENV` for Sepolia vs Base mainnet.
+This repo is currently at **V8** (operator console). V7 cashflow ledger and V6 inbound paywall are live; use `X402_ENV` for Sepolia vs Base mainnet.
 
 ---
 
@@ -33,12 +33,32 @@ Funds move on-chain (wallet → seller / Merchant). The platform does not custod
 | **V4** | Done | Track success/latency; economy vs verified routing tiers |
 | **V5** | Done | Cloud Run + `agent.json` + HTTP MCP; `X402_ENV` for Sepolia vs Base mainnet |
 | **V6** | Done | **Inbound paywall** — calling agents pay Merchant before upstream proxy |
-| **V7** | **Current** | Cashflow ledger (money in / out / markup) via API + MCP |
-| **V8** | Planned | Operator monitoring UI (balances, PnL, recent txs) |
+| **V7** | Done | Cashflow ledger (money in / out / markup) via API + MCP |
+| **V8** | **Current** | Operator monitoring UI (Linux console at `/`) |
 | **V9** | Planned | Custom domain for public MCP / Cloud Run (GCP + DNS) |
 | **V10** | Planned | Registries, auth/rate limits, durable stats (beyond `/tmp`) |
 
-You do **not** need a UI for agents — MCP + `agent.json` is the product surface. A UI is for **you** (operator monitoring), planned as V8 after the V7 ledger.
+You do **not** need a UI for agents — MCP + `agent.json` is the product surface. The UI at `/` is for **you** (operator monitoring).
+
+---
+
+## What V8 does
+
+V8 adds a **Linux console–style operator dashboard** at `/`:
+
+| Panel | Source |
+|---|---|
+| Wallets | `GET /v1/wallets` — Treasury + Merchant USDC/ETH on-chain balances |
+| PnL | `GET /v1/pnl` — revenue / cogs / markup / gross profit |
+| Recent settlements | `GET /v1/cashflow` — latest ledger rows |
+
+Auto-refreshes every 5s. Credits in the footer: run by [metaverseprofessional.tech](https://metaverseprofessional.tech/), developed by [enriquegamboa.info](https://enriquegamboa.info/).
+
+```bash
+npm run test:v8
+```
+
+Open locally: `http://127.0.0.1:8080/` (with `npm run start:http`).
 
 ---
 
@@ -113,6 +133,7 @@ V5 exposes the same dispatcher over the public internet:
 
 | Surface | Path |
 |---|---|
+| Operator console | `GET /` |
 | Health | `GET /health` |
 | Agent discovery | `GET /.well-known/agent.json` |
 | MCP (Streamable HTTP) | `ALL /mcp` |

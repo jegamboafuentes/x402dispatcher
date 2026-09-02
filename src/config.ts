@@ -72,6 +72,10 @@ export function getExplorerTxUrl(transactionHash: string): string {
   return `${profile().explorerBase}/tx/${transactionHash}`;
 }
 
+export function getExplorerAddressUrl(address: string): string {
+  return `${profile().explorerBase}/address/${address}`;
+}
+
 /** Match Bazaar / x402 payment requirement network fields for the active profile. */
 export function matchesConfiguredNetwork(network: string): boolean {
   const p = profile();

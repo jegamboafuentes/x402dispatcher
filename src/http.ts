@@ -1,4 +1,7 @@
 import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import express from "express";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
@@ -21,11 +24,14 @@ import {
 import { getInboundPaywallPublicStatus } from "./inbound.js";
 import { getCashflowPath, getPnL, listCashflow } from "./cashflow.js";
 import { getStatsPath } from "./stats.js";
+import { getWalletsSnapshot } from "./wallets.js";
 
 dotenv.config({ quiet: true });
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? "0.0.0.0";
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const CONSOLE_DIR = path.join(ROOT, "public", "console");
 
 function resolvePublicBaseUrl(req?: { protocol?: string; get?: (h: string) => string | undefined }): string {
   if (process.env.PUBLIC_BASE_URL) {
@@ -107,6 +113,7 @@ async function main() {
       cashflow_path: getCashflowPath(),
       pnl: getPnL(),
       stats_path: getStatsPath(),
+      console: "/",
     });
   });
 
@@ -132,23 +139,43 @@ async function main() {
     res.json(getPnL({ since }));
   });
 
+  app.get("/v1/wallets", async (_req, res) => {
+    try {
+      const wallets = await getWalletsSnapshot();
+      res.json(wallets);
+    } catch (error) {
+      console.error("/v1/wallets failed:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to load wallet balances",
+      });
+    }
+  });
+
   app.get(["/agent.json", "/.well-known/agent.json"], async (req, res) => {
     const agent = await buildAgentJson(resolvePublicBaseUrl(req));
     res.setHeader("Cache-Control", "public, max-age=60");
     res.json(agent);
   });
 
-  app.get("/", async (req, res) => {
+  app.get("/", (_req, res) => {
+    res.sendFile(path.join(CONSOLE_DIR, "index.html"));
+  });
+
+  app.use("/console", express.static(CONSOLE_DIR, { index: false, maxAge: "5m" }));
+
+  app.get("/api", async (req, res) => {
     res.json({
       service: "x402dispatcher",
       version: APP_VERSION,
-      message: "x402 Bazaar dispatcher MCP server (V7 cashflow ledger)",
+      message: "x402 Bazaar dispatcher MCP server (V8 operator console)",
       links: {
+        console: "/",
         health: "/health",
         agent: "/.well-known/agent.json",
         mcp: "/mcp",
         cashflow: "/v1/cashflow",
         pnl: "/v1/pnl",
+        wallets: "/v1/wallets",
       },
       public_base_url: resolvePublicBaseUrl(req),
       inbound_paywall: {
@@ -163,10 +190,11 @@ async function main() {
   });
 
   app.listen(PORT, HOST, () => {
-    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V7)`);
-    console.error(`Health: http://${HOST}:${PORT}/health`);
-    console.error(`Agent:  http://${HOST}:${PORT}/.well-known/agent.json`);
-    console.error(`MCP:    http://${HOST}:${PORT}/mcp`);
+    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V8)`);
+    console.error(`Console: http://${HOST}:${PORT}/`);
+    console.error(`Health:  http://${HOST}:${PORT}/health`);
+    console.error(`Agent:   http://${HOST}:${PORT}/.well-known/agent.json`);
+    console.error(`MCP:     http://${HOST}:${PORT}/mcp`);
   });
 }
 

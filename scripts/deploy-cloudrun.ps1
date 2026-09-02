@@ -114,9 +114,10 @@ gcloud run services update $Service `
   --update-env-vars "PUBLIC_BASE_URL=$url" | Out-Null
 Write-Host ""
 Write-Host "Deployed: $url"
+Write-Host "Console:  $url/"
 Write-Host "Health:   $url/health"
 Write-Host "Agent:    $url/.well-known/agent.json"
 Write-Host "MCP:      $url/mcp"
 Write-Host ""
 Write-Host "Smoke test:"
-Write-Host "  `$env:PUBLIC_BASE_URL='$url'; npm run test:v5"
+Write-Host "  `$env:PUBLIC_BASE_URL='$url'; npm run test:v8"

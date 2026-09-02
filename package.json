@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "7.0.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher with inbound paywall and cashflow ledger",
+  "version": "8.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher with operator console and cashflow ledger",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
     "test:v5": "tsx scripts/v5-http-smoke-test.ts",
     "test:v6": "tsx scripts/v6-inbound-smoke-test.ts",
     "test:v7": "tsx scripts/v7-cashflow-smoke-test.ts",
+    "test:v8": "tsx scripts/v8-console-smoke-test.ts",
     "test": "tsx scripts/v7-cashflow-smoke-test.ts",
     "deploy:gcp": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloudrun.ps1"
   },
