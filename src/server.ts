@@ -20,6 +20,12 @@ import {
   type DiscoveredApi,
 } from "./discovery.js";
 import {
+  getCashflowPath,
+  getPnL,
+  listCashflow,
+  newCorrelationId,
+} from "./cashflow.js";
+import {
   createInboundPaidTool,
   getInboundPaywallPublicStatus,
   getMerchantPayToAddress,
@@ -39,7 +45,7 @@ import {
   recordOutcome,
 } from "./stats.js";
 
-export const APP_VERSION = "6.0.0";
+export const APP_VERSION = "7.0.0";
 
 const tierSchema = z
   .enum(["economy", "verified"])
@@ -70,9 +76,10 @@ export async function warmDiscovery(): Promise<number> {
 
 export async function logStartupBanner(mode: "stdio" | "http"): Promise<void> {
   console.error(
-    `x402dispatcher V6 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()}`,
+      `x402dispatcher V7 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()}`,
   );
   console.error(`Stats store: ${getStatsPath()}`);
+  console.error(`Cashflow ledger: ${getCashflowPath()}`);
   try {
     const payer = await getPayerAddress();
     console.error(`Treasury payer: ${payer}`);
@@ -122,19 +129,32 @@ async function fetchMbtaPredictions(stopId: string): Promise<unknown> {
 
 async function callWithStats(
   api: DiscoveredApi,
-  args: { query?: Record<string, unknown>; body?: Record<string, unknown> },
+  args: {
+    query?: Record<string, unknown>;
+    body?: Record<string, unknown>;
+    tool?: string;
+    task?: string;
+    correlation_id?: string;
+  },
   task?: string,
 ) {
   const started = Date.now();
+  const correlation_id = args.correlation_id ?? newCorrelationId();
   try {
-    const result = await callDiscoveredApi(api, args);
+    const result = await callDiscoveredApi(api, {
+      query: args.query,
+      body: args.body,
+      tool: args.tool ?? task,
+      task: args.task ?? task,
+      correlation_id,
+    });
     const stats = recordOutcome({
       url: api.url,
       ok: true,
       latencyMs: Date.now() - started,
       task,
     });
-    return { ...result, stats };
+    return { ...result, stats, correlation_id };
   } catch (error) {
     recordOutcome({
       url: api.url,
@@ -584,6 +604,63 @@ export async function createMcpServer(): Promise<McpServer> {
     async () => toolOk(await getInboundPaywallPublicStatus()),
   );
 
+  server.registerTool(
+    "get_cashflow",
+    {
+      title: "Get Cashflow",
+      description:
+        "FREE (operator). List recent money-in / money-out / markup ledger entries from V7 cashflow store.",
+      inputSchema: {
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(200)
+          .optional()
+          .describe("Max entries to return (default 25)"),
+        direction: z
+          .enum(["in", "out", "markup"])
+          .optional()
+          .describe("Optional filter by ledger direction"),
+      },
+    },
+    async ({ limit, direction }) => {
+      try {
+        const entries = listCashflow({ limit: limit ?? 25, direction });
+        return toolOk({
+          cashflow_path: getCashflowPath(),
+          count: entries.length,
+          entries,
+          pnl: getPnL(),
+        });
+      } catch (error) {
+        return toolError("get_cashflow", error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_pnl",
+    {
+      title: "Get PnL",
+      description:
+        "FREE (operator). Summarize revenue (inbound), COGS (outbound), markup transfers, and gross profit from the cashflow ledger.",
+      inputSchema: {
+        since: z
+          .string()
+          .optional()
+          .describe("Optional ISO timestamp — only include entries at/after this time"),
+      },
+    },
+    async ({ since }) => {
+      try {
+        return toolOk(getPnL({ since }));
+      } catch (error) {
+        return toolError("get_pnl", error);
+      }
+    },
+  );
+
   return server;
 }
 
@@ -595,7 +672,7 @@ export async function buildAgentJson(baseUrl: string) {
     name: "x402dispatcher",
     version: APP_VERSION,
     description:
-      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC (V6), route by economy or verified tier, settle upstream via Coinbase CDP, and return data.",
+      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, and track cashflow (V7).",
     homepage: origin,
     mcp: {
       transport: "streamable-http",
@@ -624,6 +701,8 @@ export async function buildAgentJson(baseUrl: string) {
       "list_verified_apis",
       "get_mbta_predictions",
       "get_paywall_status",
+      "get_cashflow",
+      "get_pnl",
     ],
     free_tools: [
       "quote_route",
@@ -632,6 +711,8 @@ export async function buildAgentJson(baseUrl: string) {
       "get_api_stats",
       "list_verified_apis",
       "get_paywall_status",
+      "get_cashflow",
+      "get_pnl",
     ],
     paid_tools: ["route_and_call", "call_x402_api", "get_mbta_predictions", "dynamic bazaar tools"],
     tiers: ["economy", "verified"],

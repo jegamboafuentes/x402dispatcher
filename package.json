@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "6.0.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher MCP with inbound paywall and economy/verified routing",
+  "version": "7.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher with inbound paywall and cashflow ledger",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "test:v4": "tsx scripts/v4-smoke-test.ts",
     "test:v5": "tsx scripts/v5-http-smoke-test.ts",
     "test:v6": "tsx scripts/v6-inbound-smoke-test.ts",
-    "test": "tsx scripts/v6-inbound-smoke-test.ts",
+    "test:v7": "tsx scripts/v7-cashflow-smoke-test.ts",
+    "test": "tsx scripts/v7-cashflow-smoke-test.ts",
     "deploy:gcp": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloudrun.ps1"
   },
   "keywords": [

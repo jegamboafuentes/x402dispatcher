@@ -17,7 +17,7 @@ async function main() {
   const server = await createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("x402dispatcher MCP server running on stdio (V6)");
+  console.error("x402dispatcher MCP server running on stdio (V7)");
 }
 
 main().catch((error) => {

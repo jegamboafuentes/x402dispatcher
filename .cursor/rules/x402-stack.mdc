@@ -10,5 +10,6 @@ alwaysApply: false
 - Drive network selection via `X402_ENV` in `src/config.ts` (`development` = Base Sepolia, `production` = Base mainnet). Never hardcode only Sepolia in new code.
 - Outbound payments: Treasury signs via CDP and pays upstream Bazaar sellers; collect markup with Treasury → Merchant USDC transfer (needs a little ETH on Base for gas).
 - Inbound paywall (V6): callers pay Merchant via `@x402/mcp` `createPaymentWrapper` + CDP facilitator before proxy spends Treasury. Toggle with `INBOUND_PAYWALL`.
+- Cashflow ledger (V7): record `in` / `out` / `markup` via `src/cashflow.ts` on settle; expose `get_cashflow`, `get_pnl`, `/v1/cashflow`, `/v1/pnl`.
 - Prefer `eip155:8453` / `eip155:84532` CAIP-2 network ids when filtering Bazaar accepts.
 - Reference canonical examples from Coinbase CDP x402 docs rather than guessing implementations.

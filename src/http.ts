@@ -19,6 +19,7 @@ import {
   isInboundPaywallEnabled,
 } from "./config.js";
 import { getInboundPaywallPublicStatus } from "./inbound.js";
+import { getCashflowPath, getPnL, listCashflow } from "./cashflow.js";
 import { getStatsPath } from "./stats.js";
 
 dotenv.config({ quiet: true });
@@ -103,8 +104,32 @@ async function main() {
       max_price_usd: getMaxPriceUsd(),
       markup_bps: getMarkupBps(),
       inbound_paywall: await getInboundPaywallPublicStatus(),
+      cashflow_path: getCashflowPath(),
+      pnl: getPnL(),
       stats_path: getStatsPath(),
     });
+  });
+
+  app.get("/v1/cashflow", (req, res) => {
+    const limit = Number(req.query.limit ?? 25);
+    const direction = req.query.direction;
+    const dir =
+      direction === "in" || direction === "out" || direction === "markup"
+        ? direction
+        : undefined;
+    res.json({
+      cashflow_path: getCashflowPath(),
+      entries: listCashflow({
+        limit: Number.isFinite(limit) ? limit : 25,
+        direction: dir,
+      }),
+      pnl: getPnL(),
+    });
+  });
+
+  app.get("/v1/pnl", (req, res) => {
+    const since = typeof req.query.since === "string" ? req.query.since : undefined;
+    res.json(getPnL({ since }));
   });
 
   app.get(["/agent.json", "/.well-known/agent.json"], async (req, res) => {
@@ -117,11 +142,13 @@ async function main() {
     res.json({
       service: "x402dispatcher",
       version: APP_VERSION,
-      message: "x402 Bazaar dispatcher MCP server (V6 inbound paywall)",
+      message: "x402 Bazaar dispatcher MCP server (V7 cashflow ledger)",
       links: {
         health: "/health",
         agent: "/.well-known/agent.json",
         mcp: "/mcp",
+        cashflow: "/v1/cashflow",
+        pnl: "/v1/pnl",
       },
       public_base_url: resolvePublicBaseUrl(req),
       inbound_paywall: {
@@ -136,7 +163,7 @@ async function main() {
   });
 
   app.listen(PORT, HOST, () => {
-    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V6)`);
+    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V7)`);
     console.error(`Health: http://${HOST}:${PORT}/health`);
     console.error(`Agent:  http://${HOST}:${PORT}/.well-known/agent.json`);
     console.error(`MCP:    http://${HOST}:${PORT}/mcp`);

@@ -7,6 +7,7 @@ import {
 } from "./config.js";
 import { discoverApis, summarizeApi, type DiscoveredApi } from "./discovery.js";
 import { callDiscoveredApi, estimateTotalUsd, type ProxyCallArgs } from "./payment.js";
+import { newCorrelationId } from "./cashflow.js";
 import {
   getStatsForUrl,
   isVerified,
@@ -184,11 +185,15 @@ export async function routeAndCall(options: {
     stats?: ApiStats;
   }> = [];
   const toTry = candidates.slice(0, maxAttempts);
+  const correlation_id = newCorrelationId();
 
   for (const candidate of toTry) {
     const callArgs: ProxyCallArgs = {
       query: options.query ?? candidate.api.exampleQuery,
       body: options.body ?? candidate.api.exampleBody,
+      tool: "route_and_call",
+      task: options.task,
+      correlation_id,
     };
     const started = Date.now();
 
@@ -230,6 +235,7 @@ export async function routeAndCall(options: {
           .map(withoutApi),
         payment: result.payment,
         data: result.data,
+        correlation_id,
       };
     } catch (error) {
       const latencyMs = Date.now() - started;

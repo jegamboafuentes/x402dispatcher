@@ -34,7 +34,8 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 - **V3**: Implement smart arbitrage routing to dynamically search, compare prices, and select the cheapest generic API for a given task.
 - **V4**: Track API success rates and speed to curate a premium "Verified" routing tier for high-paying AI developers.
 - **V5**: Host on GCP Cloud Run, expose `agent.json` + Streamable HTTP MCP, support `X402_ENV=production` for real Base mainnet USDC.
-- **V6 (current)**: Inbound paywall — charge calling agents via x402 before proxying; true customer revenue (`INBOUND_PAYWALL`, Merchant `payTo`).
-- **V7**: Cashflow ledger — persist money-in / money-out / markup events and balances (API + MCP tools first).
+- **V6**: Inbound paywall — charge calling agents via x402 before proxying; true customer revenue (`INBOUND_PAYWALL`, Merchant `payTo`).
+- **V7 (current)**: Cashflow ledger — persist money-in / money-out / markup events and balances (API + MCP tools first).
 - **V8**: Operator monitoring UI — dashboard for treasury/merchant balances, PnL, recent settlements.
-- **V9**: Public distribution hardening — registries (Glama/Smithery), auth/rate limits, durable stats storage.
+- **V9**: Custom domain for the public MCP / Cloud Run service (GCP load balancer + DNS).
+- **V10**: Public distribution hardening — registries (Glama/Smithery), auth/rate limits, durable stats storage.

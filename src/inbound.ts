@@ -10,10 +10,12 @@ import {
 import {
   MERCHANT_ACCOUNT_NAME,
   formatUsdPrice,
+  getExplorerTxUrl,
   getInboundPriceUsd,
   getNetworkCaip2,
   isInboundPaywallEnabled,
 } from "./config.js";
+import { amountAtomicToUsd, recordCashflow } from "./cashflow.js";
 
 const cdp = new CdpClient();
 
@@ -85,10 +87,28 @@ export async function createInboundPaidTool(options: {
         : undefined,
     },
     hooks: {
-      onAfterSettlement: async ({ settlement, toolName }) => {
+      onAfterSettlement: async ({ settlement, toolName, paymentRequirements }) => {
         console.error(
           `Inbound x402 settled for ${toolName}: tx=${settlement.transaction ?? "n/a"} success=${settlement.success}`,
         );
+        const amountUsd =
+          amountAtomicToUsd(paymentRequirements.amount) ?? getInboundPriceUsd();
+        recordCashflow({
+          direction: "in",
+          amount_usd: amountUsd,
+          amount_atomic: paymentRequirements.amount
+            ? String(paymentRequirements.amount)
+            : undefined,
+          tool: toolName,
+          from: settlement.payer,
+          to: paymentRequirements.payTo,
+          tx_hash: settlement.transaction,
+          explorer_url: settlement.transaction
+            ? getExplorerTxUrl(settlement.transaction)
+            : undefined,
+          status: settlement.success ? "success" : "failed",
+          note: settlement.success ? "inbound x402 to Merchant" : "inbound settlement failed",
+        });
       },
     },
   }) as PaidToolFactory;

@@ -18,6 +18,7 @@ import {
   maxPriceAtomic,
   usdToAtomic,
 } from "./config.js";
+import { recordCashflow } from "./cashflow.js";
 import type { DiscoveredApi } from "./discovery.js";
 
 const cdp = new CdpClient();
@@ -82,7 +83,10 @@ function pricedWithMarkup(upstreamPriceUsd: number): {
   return { upstreamPriceUsd, markupUsd, totalUsd };
 }
 
-async function collectMarkup(markupUsd: number): Promise<{
+async function collectMarkup(
+  markupUsd: number,
+  meta?: { tool?: string; task?: string; correlation_id?: string; upstream_url?: string },
+): Promise<{
   transactionHash?: string;
   explorerUrl?: string;
   to?: string;
@@ -108,16 +112,57 @@ async function collectMarkup(markupUsd: number): Promise<{
     });
     const receipt = await getPublicClient().waitForTransactionReceipt({ hash: transactionHash });
     if (receipt.status !== "success") {
+      recordCashflow({
+        direction: "markup",
+        amount_usd: markupUsd,
+        amount_atomic: amount.toString(),
+        from: treasury.address,
+        to: merchant.address,
+        tx_hash: transactionHash,
+        explorer_url: getExplorerTxUrl(transactionHash),
+        tool: meta?.tool,
+        task: meta?.task,
+        upstream_url: meta?.upstream_url,
+        correlation_id: meta?.correlation_id,
+        status: "failed",
+        note: "markup transfer reverted",
+      });
       return { skipped: `markup transfer reverted: ${transactionHash}` };
     }
+    recordCashflow({
+      direction: "markup",
+      amount_usd: markupUsd,
+      amount_atomic: amount.toString(),
+      from: treasury.address,
+      to: merchant.address,
+      tx_hash: transactionHash,
+      explorer_url: getExplorerTxUrl(transactionHash),
+      tool: meta?.tool,
+      task: meta?.task,
+      upstream_url: meta?.upstream_url,
+      correlation_id: meta?.correlation_id,
+      status: "success",
+      note: "Treasury → Merchant markup",
+    });
     return {
       transactionHash,
       to: merchant.address,
       explorerUrl: getExplorerTxUrl(transactionHash),
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    recordCashflow({
+      direction: "markup",
+      amount_usd: markupUsd,
+      tool: meta?.tool,
+      task: meta?.task,
+      upstream_url: meta?.upstream_url,
+      correlation_id: meta?.correlation_id,
+      status: "skipped",
+      note: message,
+    });
     return {
-      skipped: error instanceof Error ? error.message : String(error),
+      skipped: message,
     };
   }
 }
@@ -148,6 +193,19 @@ export async function settleSimulatedMbtaPayment(): Promise<{
     throw new Error(`USDC payment reverted on ${getNetworkName()}. tx: ${transactionHash}`);
   }
 
+  recordCashflow({
+    direction: "out",
+    amount_usd: amountUsd,
+    amount_atomic: amount.toString(),
+    from: treasury.address,
+    to: merchant.address,
+    tx_hash: transactionHash,
+    explorer_url: getExplorerTxUrl(transactionHash),
+    tool: "get_mbta_predictions",
+    status: "success",
+    note: "MBTA demo Treasury → Merchant settle",
+  });
+
   return {
     transactionHash,
     from: treasury.address,
@@ -161,6 +219,9 @@ export type ProxyCallArgs = {
   query?: Record<string, unknown>;
   body?: Record<string, unknown>;
   headers?: Record<string, string>;
+  tool?: string;
+  task?: string;
+  correlation_id?: string;
 };
 
 export async function callDiscoveredApi(api: DiscoveredApi, args: ProxyCallArgs = {}) {
@@ -209,18 +270,49 @@ export async function callDiscoveredApi(api: DiscoveredApi, args: ProxyCallArgs 
   }
 
   let settlement: unknown;
+  let outboundTx: string | undefined;
   const paymentHeader =
     response.headers.get("payment-response") ?? response.headers.get("PAYMENT-RESPONSE");
   if (paymentHeader) {
     try {
       settlement = decodePaymentResponseHeader(paymentHeader);
+      if (
+        settlement &&
+        typeof settlement === "object" &&
+        "transaction" in settlement &&
+        typeof (settlement as { transaction?: unknown }).transaction === "string"
+      ) {
+        outboundTx = (settlement as { transaction: string }).transaction;
+      }
     } catch {
       settlement = paymentHeader;
     }
   }
 
-  const markup = await collectMarkup(pricing.markupUsd);
   const payer = await getPayerAddress();
+  recordCashflow({
+    direction: "out",
+    amount_usd: pricing.upstreamPriceUsd,
+    amount_atomic: api.upstreamAmountAtomic.toString(),
+    network: String(api.network || getNetworkCaip2()),
+    from: payer,
+    to: api.payTo,
+    tx_hash: outboundTx,
+    explorer_url: outboundTx ? getExplorerTxUrl(outboundTx) : undefined,
+    tool: args.tool,
+    task: args.task,
+    upstream_url: api.url,
+    correlation_id: args.correlation_id,
+    status: "success",
+    note: "Treasury → upstream seller",
+  });
+
+  const markup = await collectMarkup(pricing.markupUsd, {
+    tool: args.tool,
+    task: args.task,
+    correlation_id: args.correlation_id,
+    upstream_url: api.url,
+  });
 
   return {
     payment: {
@@ -237,6 +329,7 @@ export async function callDiscoveredApi(api: DiscoveredApi, args: ProxyCallArgs 
       markup_transfer: markup,
       resource: api.url,
       http_status: response.status,
+      correlation_id: args.correlation_id,
     },
     data,
   };
