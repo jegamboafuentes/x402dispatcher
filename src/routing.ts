@@ -1,6 +1,7 @@
 import {
   getMarkupBps,
   getMaxPriceUsd,
+  getNetworkLabel,
   getVerifiedMinSamples,
   getVerifiedMinSuccessRate,
 } from "./config.js";
@@ -170,7 +171,7 @@ export async function routeAndCall(options: {
         ? ` No verified APIs yet (need ≥${getVerifiedMinSamples()} calls and ≥${getVerifiedMinSuccessRate() * 100}% success). Run economy routes first or lower VERIFIED_MIN_SAMPLES.`
         : "";
     throw new Error(
-      `No Base Sepolia x402 APIs found for "${options.task}" under $${options.maxPriceUsd ?? getMaxPriceUsd()} (tier=${tier}).${hint}`,
+      `No ${getNetworkLabel()} x402 APIs found for "${options.task}" under $${options.maxPriceUsd ?? getMaxPriceUsd()} (tier=${tier}).${hint}`,
     );
   }
 

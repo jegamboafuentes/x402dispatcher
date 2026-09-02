@@ -2,17 +2,19 @@ import { CdpClient } from "@coinbase/cdp-sdk";
 import { CdpX402Client } from "@coinbase/cdp-sdk/x402";
 import { wrapFetchWithPayment, decodePaymentResponseHeader } from "@x402/fetch";
 import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
 import {
   MERCHANT_ACCOUNT_NAME,
-  NETWORK_CAIP2,
-  NETWORK_NAME,
   TREASURY_ACCOUNT_NAME,
-  USDC_BASE_SEPOLIA,
   assertWithinSpendLimit,
   atomicToUsd,
+  getCdpX402Environment,
+  getExplorerTxUrl,
   getMarkupBps,
   getMaxPriceUsd,
+  getNetworkCaip2,
+  getNetworkName,
+  getUsdcAddress,
+  getViemChain,
   maxPriceAtomic,
   usdToAtomic,
 } from "./config.js";
@@ -20,18 +22,24 @@ import type { DiscoveredApi } from "./discovery.js";
 
 const cdp = new CdpClient();
 
-const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http(),
-});
-
+let publicClient: ReturnType<typeof createPublicClient> | undefined;
 let paymentClient: CdpX402Client | undefined;
 let fetchWithPayment: ReturnType<typeof wrapFetchWithPayment> | undefined;
+
+function getPublicClient() {
+  if (!publicClient) {
+    publicClient = createPublicClient({
+      chain: getViemChain(),
+      transport: http(),
+    });
+  }
+  return publicClient;
+}
 
 export function getPaymentClient(): CdpX402Client {
   if (!paymentClient) {
     paymentClient = new CdpX402Client({
-      environment: "development",
+      environment: getCdpX402Environment(),
       walletConfig: {
         type: "eoa",
         accountName: TREASURY_ACCOUNT_NAME,
@@ -39,9 +47,9 @@ export function getPaymentClient(): CdpX402Client {
       spendControls: {
         maxAmountPerPayment: {
           atomic: maxPriceAtomic(),
-          asset: USDC_BASE_SEPOLIA,
+          asset: getUsdcAddress(),
         },
-        allowedNetworks: [NETWORK_CAIP2],
+        allowedNetworks: [getNetworkCaip2()],
       },
       builderCode: "x402dispatcher",
     });
@@ -96,16 +104,16 @@ async function collectMarkup(markupUsd: number): Promise<{
       to: merchant,
       amount,
       token: "usdc",
-      network: NETWORK_NAME,
+      network: getNetworkName(),
     });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+    const receipt = await getPublicClient().waitForTransactionReceipt({ hash: transactionHash });
     if (receipt.status !== "success") {
       return { skipped: `markup transfer reverted: ${transactionHash}` };
     }
     return {
       transactionHash,
       to: merchant.address,
-      explorerUrl: `https://sepolia.basescan.org/tx/${transactionHash}`,
+      explorerUrl: getExplorerTxUrl(transactionHash),
     };
   } catch (error) {
     return {
@@ -132,19 +140,19 @@ export async function settleSimulatedMbtaPayment(): Promise<{
     to: merchant,
     amount,
     token: "usdc",
-    network: NETWORK_NAME,
+    network: getNetworkName(),
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+  const receipt = await getPublicClient().waitForTransactionReceipt({ hash: transactionHash });
   if (receipt.status !== "success") {
-    throw new Error(`USDC payment reverted on ${NETWORK_NAME}. tx: ${transactionHash}`);
+    throw new Error(`USDC payment reverted on ${getNetworkName()}. tx: ${transactionHash}`);
   }
 
   return {
     transactionHash,
     from: treasury.address,
     to: merchant.address,
-    explorerUrl: `https://sepolia.basescan.org/tx/${transactionHash}`,
+    explorerUrl: getExplorerTxUrl(transactionHash),
     amount_usd: amountUsd,
   };
 }

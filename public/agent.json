@@ -8,7 +8,7 @@
     "transport": "streamable-http",
     "path": "/mcp"
   },
-  "networks": ["eip155:84532"],
+  "networks": ["eip155:8453"],
   "capabilities": [
     "search_bazaar",
     "quote_route",

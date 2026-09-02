@@ -9,7 +9,7 @@ import {
   logStartupBanner,
   warmDiscovery,
 } from "./server.js";
-import { getMaxPriceUsd, getMarkupBps } from "./config.js";
+import { getMaxPriceUsd, getMarkupBps, getNetworkLabel, getX402Environment, getNetworkCaip2 } from "./config.js";
 import { getStatsPath } from "./stats.js";
 
 dotenv.config({ quiet: true });
@@ -61,7 +61,7 @@ async function handleMcp(req: import("express").Request, res: import("express").
 async function main() {
   await logStartupBanner("http");
   const count = await warmDiscovery();
-  console.error(`Discovered and cached ${count} Base Sepolia x402 APIs`);
+  console.error(`Discovered and cached ${count} ${getNetworkLabel()} x402 APIs`);
 
   const app = createMcpExpressApp({ host: HOST });
 
@@ -88,6 +88,9 @@ async function main() {
       ok: true,
       service: "x402dispatcher",
       version: APP_VERSION,
+      x402_env: getX402Environment(),
+      network: getNetworkCaip2(),
+      network_label: getNetworkLabel(),
       warmed_apis: getWarmedApis().length,
       max_price_usd: getMaxPriceUsd(),
       markup_bps: getMarkupBps(),

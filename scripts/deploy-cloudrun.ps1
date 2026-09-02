@@ -3,7 +3,9 @@ param(
   [string]$ProjectId = "experiment-jegf-personal",
   [string]$Region = "us-central1",
   [string]$Service = "x402dispatcher",
-  [string]$Repo = "x402dispatcher"
+  [string]$Repo = "x402dispatcher",
+  [ValidateSet("development", "production")]
+  [string]$X402Env = "production"
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +20,7 @@ function Test-GcloudResource {
   return $ok
 }
 
-Write-Host "Project=$ProjectId Region=$Region Service=$Service"
+Write-Host "Project=$ProjectId Region=$Region Service=$Service X402_ENV=$X402Env"
 
 gcloud config set project $ProjectId
 
@@ -65,7 +67,15 @@ foreach ($name in $secretNames) {
     if (-not $value) {
       throw "Missing secret $name. Add it to .env or create it in Secret Manager, then re-run."
     }
-    $value | gcloud secrets create $name --data-file=- --project=$ProjectId
+    # Write UTF-8 without BOM/newline — PowerShell piping can corrupt base64 secrets.
+    $tmpFile = Join-Path $env:TEMP "x402dispatcher-$name.secret"
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllBytes($tmpFile, $utf8.GetBytes($value))
+    try {
+      gcloud secrets create $name --data-file=$tmpFile --project=$ProjectId
+    } finally {
+      Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+    }
   } else {
     Write-Host "Secret $name already exists"
   }
@@ -93,7 +103,7 @@ gcloud run deploy $Service `
   --timeout 300 `
   --max-instances 3 `
   --set-secrets "CDP_API_KEY_ID=CDP_API_KEY_ID:latest,CDP_API_KEY_SECRET=CDP_API_KEY_SECRET:latest,CDP_WALLET_SECRET=CDP_WALLET_SECRET:latest,MAX_PRICE_USD=MAX_PRICE_USD:latest" `
-  --set-env-vars "HOST=0.0.0.0,DATA_DIR=/tmp/x402dispatcher-data,MARKUP_BPS=1000,DISCOVERY_LIMIT=40,VERIFIED_MIN_SAMPLES=2,VERIFIED_MIN_SUCCESS_RATE=0.8" `
+  --set-env-vars "HOST=0.0.0.0,DATA_DIR=/tmp/x402dispatcher-data,MARKUP_BPS=1000,DISCOVERY_LIMIT=40,VERIFIED_MIN_SAMPLES=2,VERIFIED_MIN_SUCCESS_RATE=0.8,X402_ENV=$X402Env" `
   --project $ProjectId
 
 $url = gcloud run services describe $Service --region $Region --project $ProjectId --format="value(status.url)"

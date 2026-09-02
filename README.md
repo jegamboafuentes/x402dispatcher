@@ -2,7 +2,7 @@
 
 Local **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
 
-This repo is currently at **V5**.
+This repo is currently at **V5** (Base mainnet production proven). **V6** is next: inbound agent paywall.
 
 ---
 
@@ -19,7 +19,7 @@ AI agents are good at reasoning and tool use, but bad at paying for APIs. The [x
 | Dispatch | Sign and settle payment from a treasury wallet via `@coinbase/cdp-sdk` |
 | Monetization | Apply a micro-markup on top of upstream cost and retain the spread |
 
-Funds move wallet → merchant. The platform does not custody buyer funds.
+Funds move on-chain (wallet → seller / Merchant). The platform does not custody buyer card data. Until V6, the **operator Treasury** funds outbound calls; after V6, **calling agents** pay inbound first.
 
 ---
 
@@ -31,7 +31,28 @@ Funds move wallet → merchant. The platform does not custody buyer funds.
 | **V2** | Done | Auto-discover Base Sepolia Bazaar APIs and wrap many as MCP tools with real x402 payment |
 | **V3** | Done | Smart arbitrage: search, compare prices, pick cheapest API for a task (with failover) |
 | **V4** | Done | Track success/latency; economy vs verified routing tiers |
-| **V5** | **Current** | Cloud host (GCP Cloud Run), public `agent.json`, remote MCP HTTP |
+| **V5** | **Current** | Cloud Run + `agent.json` + HTTP MCP; `X402_ENV` for Sepolia vs Base mainnet |
+| **V6** | Next | **Inbound paywall** — calling agents pay x402dispatcher before upstream proxy |
+| **V7** | Planned | Cashflow ledger (money in / out / markup) via API + MCP |
+| **V8** | Planned | Operator monitoring UI (balances, PnL, recent txs) |
+| **V9** | Planned | Registries, auth/rate limits, durable stats (beyond `/tmp`) |
+
+You do **not** need a UI for agents — MCP + `agent.json` is the product surface. A UI is for **you** (operator monitoring), planned as V8 after the V7 ledger.
+
+---
+
+## What V6 will do
+
+Today outbound works: Treasury pays sellers; markup lands in Merchant. External agents can still call Cloud Run **without paying you**.
+
+V6 adds the missing business gate:
+
+1. Agent calls a paid tool / HTTP route on x402dispatcher
+2. Server returns **HTTP 402** with your price (upstream + markup)
+3. Agent settles USDC to **Merchant** (or Treasury)
+4. Only then does the proxy pay the upstream Bazaar API and return data
+
+That turns the platform from a self-funded demo into a solo revenue business.
 
 ---
 
@@ -139,7 +160,29 @@ Upstream x402 HTTP API (Bazaar listing)
   - `CDP_API_KEY_ID`
   - `CDP_API_KEY_SECRET`
   - `CDP_WALLET_SECRET` (Wallet Secret from CDP Portal → Non-custodial Wallet → Security — **not** a MetaMask private key)
-- Base Sepolia USDC (+ a little ETH for gas) on the Treasury address
+- Base **mainnet** USDC on the Treasury address for production (`X402_ENV=production`), or Base Sepolia test USDC for development (default)
+
+---
+
+## Production (real USDC on Base)
+
+1. Fund your CDP **`Treasury`** wallet with **USDC on Base mainnet** (not Sepolia).
+2. Set in `.env` (local) or Cloud Run env:
+
+```env
+X402_ENV=production
+MAX_PRICE_USD=0.01
+```
+
+3. Redeploy (Cloud Run defaults to production):
+
+```bash
+npm run deploy:gcp
+```
+
+4. Confirm `/health` shows `"x402_env": "production"` and `"network": "eip155:8453"`.
+
+To stay on testnet locally, omit `X402_ENV` or set `X402_ENV=development`.
 
 ---
 
@@ -165,6 +208,7 @@ cp .env.example .env
 | `DISCOVERY_LIMIT` | Optional | Max Bazaar tools to register at startup (default `40`, max `100`) |
 | `VERIFIED_MIN_SAMPLES` | Optional | Min successful-history calls for Verified (default `2`) |
 | `VERIFIED_MIN_SUCCESS_RATE` | Optional | Min success rate 0–1 for Verified (default `0.8`) |
+| `X402_ENV` | Optional | `development` (Base Sepolia, default) or `production` (Base mainnet, real USDC) |
 | `CDP_PRIVATE_KEY` | Optional | Only if you import a specific EOA into CDP (not used by default V2+ payer path) |
 
 Never commit `.env`. Only `.env.example` is tracked.

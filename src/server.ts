@@ -4,8 +4,12 @@ import {
   getDiscoveryLimit,
   getMarkupBps,
   getMaxPriceUsd,
+  getNetworkCaip2,
+  getNetworkLabel,
+  getNetworkName,
   getVerifiedMinSamples,
   getVerifiedMinSuccessRate,
+  getX402Environment,
 } from "./config.js";
 import {
   discoverApis,
@@ -58,7 +62,7 @@ export async function warmDiscovery(): Promise<number> {
 
 export async function logStartupBanner(mode: "stdio" | "http"): Promise<void> {
   console.error(
-    `x402dispatcher V5 starting (${mode}) MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()} VERIFIED_MIN_SAMPLES=${getVerifiedMinSamples()} VERIFIED_MIN_SUCCESS_RATE=${getVerifiedMinSuccessRate()}`,
+    `x402dispatcher V5 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()} VERIFIED_MIN_SAMPLES=${getVerifiedMinSamples()} VERIFIED_MIN_SUCCESS_RATE=${getVerifiedMinSuccessRate()}`,
   );
   console.error(`Stats store: ${getStatsPath()}`);
   try {
@@ -129,6 +133,7 @@ async function callWithStats(
  */
 export function createMcpServer(): McpServer {
   const catalog = new Map<string, DiscoveredApi>();
+  const networkLabel = getNetworkLabel();
   const server = new McpServer({
     name: "x402dispatcher",
     version: APP_VERSION,
@@ -250,7 +255,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Route and Call",
       description:
-        "Route a task to a Base Sepolia x402 API, pay, and return data. economy = cheapest; verified = reliability-scored. Records latency/success for the Verified tier. Failover on errors.",
+        `Route a task to a ${networkLabel} x402 API, pay, and return data. economy = cheapest; verified = reliability-scored. Records latency/success for the Verified tier. Failover on errors.`,
       inputSchema: {
         task: z
           .string()
@@ -369,7 +374,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Search x402 Bazaar",
       description:
-        "Search the public Coinbase x402 Bazaar catalog for Base Sepolia paid APIs at or below MAX_PRICE_USD, then cache matches for call_x402_api.",
+        `Search the public Coinbase x402 Bazaar catalog for ${networkLabel} paid APIs at or below MAX_PRICE_USD, then cache matches for call_x402_api.`,
       inputSchema: {
         query: z
           .string()
@@ -410,7 +415,7 @@ export function createMcpServer(): McpServer {
     {
       title: "List Discovered APIs",
       description:
-        "List x402dispatcher APIs currently registered from Bazaar discovery (Base Sepolia, within MAX_PRICE_USD).",
+        `List x402dispatcher APIs currently registered from Bazaar discovery (${networkLabel}, within MAX_PRICE_USD).`,
     },
     async () => {
       const unique = [...new Map([...catalog.values()].map((api) => [api.url, api])).values()];
@@ -483,7 +488,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Get MBTA Predictions",
       description:
-        "V1 demo tool: settle a $0.01 USDC Base Sepolia payment through the x402dispatcher treasury, then return live MBTA arrival predictions for a stop.",
+        `V1 demo tool: settle a $0.01 USDC ${networkLabel} payment through the x402dispatcher treasury, then return live MBTA arrival predictions for a stop.`,
       inputSchema: {
         stop_id: z
           .string()
@@ -523,10 +528,10 @@ export function buildAgentJson(baseUrl: string) {
       agent_json: `${origin}/.well-known/agent.json`,
       mcp: `${origin}/mcp`,
     },
-    networks: ["eip155:84532"],
+    networks: [getNetworkCaip2()],
     payment: {
       asset: "USDC",
-      network: "base-sepolia",
+      network: getNetworkName(),
       max_price_usd: getMaxPriceUsd(),
       markup_bps: getMarkupBps(),
     },

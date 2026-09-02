@@ -2,6 +2,11 @@
 description: Security guidelines for programmatic wallets and private keys
 alwaysApply: true
 ---
-- Never hardcode the `CDP_PRIVATE_KEY` or any wallet credentials in the codebase.
-- Always load wallet credentials strictly from the `.env` file.
-- Before signing any automated transaction, ensure there is a strict `MAX_PRICE_USD` check in the code to prevent draining the treasury.
+- Never hardcode `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`, `EVM_PRIVATE_KEY`, or any wallet credentials in the codebase.
+- Always load wallet credentials from `.env` locally and from GCP Secret Manager on Cloud Run — never commit `.env`.
+- Before signing any automated spend, enforce a strict `MAX_PRICE_USD` check (upstream + markup) to prevent draining the treasury.
+- Keep `Treasury` as a burner float wallet only; isolate profit in `Merchant`. Do not use personal primary wallets as the payer.
+- Production (`X402_ENV=production`) spends **real Base mainnet USDC**. Confirm network and balances before deploy.
+- Upload secrets to GCP as UTF-8 files with **no trailing newlines** (PowerShell piping can corrupt base64 secrets and cause CDP `Unauthorized`).
+- Prefer keeping `/mcp` rate-limited / auth-gated before charging external agents (V6+ inbound paywall).
+- Log payment outcomes without logging private keys, wallet secrets, or full API secrets.

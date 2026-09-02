@@ -4,7 +4,11 @@ globs: src/**/*.ts
 alwaysApply: false
 ---
 - Always use Node.js and TypeScript for backend routing.
-- Use `@coinbase/cdp-sdk` for all x402 discovery and wallet functions.
-- Use the `fetchWithPayment` utility from `x402-fetch` to handle HTTP 402 responses automatically.
-- Do not manually construct HTTP 402 retry loops; always rely on the SDK middleware.
-- Reference canonical examples from the `@coinbase/cdp-sdk` documentation rather than guessing implementations.
+- Use `@coinbase/cdp-sdk` for Bazaar discovery, CDP wallets, and `CdpX402Client` payment signing.
+- Use `wrapFetchWithPayment` from `@x402/fetch` (not the older `x402-fetch` package name) to handle HTTP 402 automatically.
+- Do not manually construct HTTP 402 retry loops; rely on SDK helpers.
+- Drive network selection via `X402_ENV` in `src/config.ts` (`development` = Base Sepolia, `production` = Base mainnet). Never hardcode only Sepolia in new code.
+- Outbound payments: Treasury signs via CDP and pays upstream Bazaar sellers; collect markup with Treasury → Merchant USDC transfer (needs a little ETH on Base for gas).
+- Inbound paywall (V6): callers should pay x402dispatcher first; then the proxy settles upstream from Treasury/Merchant float.
+- Prefer `eip155:8453` / `eip155:84532` CAIP-2 network ids when filtering Bazaar accepts.
+- Reference canonical examples from Coinbase CDP x402 docs rather than guessing implementations.

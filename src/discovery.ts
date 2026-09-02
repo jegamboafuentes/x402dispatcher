@@ -4,7 +4,13 @@ import {
   type X402DiscoveryResource,
   type X402PaymentRequirements,
 } from "@coinbase/cdp-sdk";
-import { NETWORK_CAIP2, atomicToUsd, getDiscoveryLimit, getMaxPriceUsd } from "./config.js";
+import {
+  atomicToUsd,
+  getDiscoveryLimit,
+  getMaxPriceUsd,
+  getNetworkName,
+  matchesConfiguredNetwork,
+} from "./config.js";
 
 export type BazaarHttpInput = {
   type?: string;
@@ -34,11 +40,7 @@ function getExactAccept(
   resource: X402DiscoveryResource,
 ): X402PaymentRequirements | undefined {
   return resource.accepts?.find(
-    (accept) =>
-      accept.scheme === "exact" &&
-      (accept.network === NETWORK_CAIP2 ||
-        accept.network === "base-sepolia" ||
-        String(accept.network).includes("84532")),
+    (accept) => accept.scheme === "exact" && matchesConfiguredNetwork(String(accept.network)),
   );
 }
 
@@ -121,23 +123,23 @@ export async function discoverApis(options?: {
   if (options?.query?.trim()) {
     const result = await searchX402Resources({
       query: options.query.trim(),
-      network: "base-sepolia",
+      network: getNetworkName(),
       maxUsdPrice,
       limit: Math.min(limit, 20),
     });
     resources = result.resources ?? [];
   } else {
-    // Prefer network-filtered search so startup discovery stays on Base Sepolia.
+    const network = getNetworkName();
     const searches = await Promise.all([
       searchX402Resources({
         query: "api data weather token",
-        network: "base-sepolia",
+        network,
         maxUsdPrice,
         limit: 20,
       }),
       searchX402Resources({
         query: "price forecast info",
-        network: "base-sepolia",
+        network,
         maxUsdPrice,
         limit: 20,
       }),
@@ -153,10 +155,7 @@ export async function discoverApis(options?: {
       ...(searches[1].resources ?? []),
       ...((searches[2].items ?? []).filter((item) =>
         item.accepts?.some(
-          (accept) =>
-            accept.network === NETWORK_CAIP2 ||
-            accept.network === "base-sepolia" ||
-            String(accept.network).includes("84532"),
+          (accept) => accept.scheme === "exact" && matchesConfiguredNetwork(String(accept.network)),
         ),
       )),
     ];

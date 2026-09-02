@@ -1,11 +1,89 @@
 import { parseUnits } from "viem";
+import { base, baseSepolia } from "viem/chains";
+import type { Chain } from "viem";
 
 export const USDC_DECIMALS = 6;
-export const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
-export const NETWORK_CAIP2 = "eip155:84532" as const;
-export const NETWORK_NAME = "base-sepolia" as const;
 export const TREASURY_ACCOUNT_NAME = "Treasury";
 export const MERCHANT_ACCOUNT_NAME = "Merchant";
+
+const NETWORK_PROFILES = {
+  development: {
+    cdpEnvironment: "development" as const,
+    caip2: "eip155:84532",
+    networkName: "base-sepolia",
+    networkLabel: "Base Sepolia",
+    usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const,
+    chain: baseSepolia,
+    explorerBase: "https://sepolia.basescan.org",
+  },
+  production: {
+    cdpEnvironment: "production" as const,
+    caip2: "eip155:8453",
+    networkName: "base",
+    networkLabel: "Base",
+    usdc: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" as const,
+    chain: base,
+    explorerBase: "https://basescan.org",
+  },
+};
+
+export type X402Environment = keyof typeof NETWORK_PROFILES;
+
+export function getX402Environment(): X402Environment {
+  const raw = (process.env.X402_ENV ?? "development").trim().toLowerCase();
+  if (raw === "production" || raw === "prod") {
+    return "production";
+  }
+  if (raw === "development" || raw === "dev") {
+    return "development";
+  }
+  throw new Error('X402_ENV must be "development" or "production"');
+}
+
+function profile() {
+  return NETWORK_PROFILES[getX402Environment()];
+}
+
+export function getCdpX402Environment(): "development" | "production" {
+  return profile().cdpEnvironment;
+}
+
+export function getNetworkCaip2(): string {
+  return profile().caip2;
+}
+
+export function getNetworkName(): string {
+  return profile().networkName;
+}
+
+export function getNetworkLabel(): string {
+  return profile().networkLabel;
+}
+
+export function getUsdcAddress(): `0x${string}` {
+  return profile().usdc;
+}
+
+export function getViemChain(): Chain {
+  return profile().chain;
+}
+
+export function getExplorerTxUrl(transactionHash: string): string {
+  return `${profile().explorerBase}/tx/${transactionHash}`;
+}
+
+/** Match Bazaar / x402 payment requirement network fields for the active profile. */
+export function matchesConfiguredNetwork(network: string): boolean {
+  const p = profile();
+  const value = String(network);
+  if (value === p.caip2 || value === p.networkName) {
+    return true;
+  }
+  if (getX402Environment() === "production") {
+    return value === "base-mainnet" || value.endsWith(":8453");
+  }
+  return value === "base-sepolia" || value.endsWith(":84532");
+}
 
 export function getMaxPriceUsd(): number {
   const raw = process.env.MAX_PRICE_USD;

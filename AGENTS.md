@@ -10,8 +10,6 @@ Architecting a business on the x402 protocol allows a single individual to bypas
 - **Fraud Elimination**: Blockchain settlements have strict cryptographic finality, entirely eliminating traditional chargeback liabilities.
 - **Linear Scaling**: By utilizing open-source SDKs and public facilitators, infrastructure costs remain virtually nonexistent until revenue-generating usage occurs.
 
-
-
 ## The Agentic Discovery Engine Architecture
 
 One of the most lucrative models for a solo developer is building a Bazaar Aggregator.
@@ -21,7 +19,15 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 - **Proxy Execution**: The platform intercepts client requests, automatically signs an EIP-3009 transfer using a treasury wallet, and settles the micropayment.
 - **Monetization**: The engine acts as an intermediary, applying a programmatic micro-markup to the underlying API cost and retaining the spread.
 
+### Money flow (current vs target)
 
+| Stage | Who pays whom | Status |
+|---|---|---|
+| Outbound x402 | **Treasury → upstream seller** | Live (V2–V5) |
+| Markup | **Treasury → Merchant** (operator profit) | Live (needs ETH for gas on Base) |
+| Inbound x402 | **Calling agent → Merchant/Treasury** | **V6 (next)** |
+
+Until V6, Cloud Run spends the operator’s Treasury float; markup only moves USDC between the operator’s own wallets.
 
 ## Phased Execution Roadmap
 
@@ -29,5 +35,8 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 - **V2**: Automate multi-tool discovery by connecting to the public catalog and dynamically wrapping dozens of APIs.
 - **V3**: Implement smart arbitrage routing to dynamically search, compare prices, and select the cheapest generic API for a given task.
 - **V4**: Track API success rates and speed to curate a premium "Verified" routing tier for high-paying AI developers.
-- **V5 (current)**: Host the server on the cloud (GCP Cloud Run), list the platform on public AI registries, and expose an `agent.json` file to attract autonomous web crawlers.
-
+- **V5 (current)**: Host on GCP Cloud Run, expose `agent.json` + Streamable HTTP MCP, support `X402_ENV=production` for real Base mainnet USDC.
+- **V6 (next)**: Inbound paywall — charge calling agents via x402 before proxying; true customer revenue.
+- **V7**: Cashflow ledger — persist money-in / money-out / markup events and balances (API + MCP tools first).
+- **V8**: Operator monitoring UI — dashboard for treasury/merchant balances, PnL, recent settlements.
+- **V9**: Public distribution hardening — registries (Glama/Smithery), auth/rate limits, durable stats storage.

@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { getNetworkLabel } from "./config.js";
 import {
   createMcpServer,
   logStartupBanner,
@@ -11,7 +12,7 @@ dotenv.config({ quiet: true });
 async function main() {
   await logStartupBanner("stdio");
   const count = await warmDiscovery();
-  console.error(`Discovered and registered ${count} Base Sepolia x402 APIs`);
+  console.error(`Discovered and registered ${count} ${getNetworkLabel()} x402 APIs`);
 
   const server = createMcpServer();
   const transport = new StdioServerTransport();
