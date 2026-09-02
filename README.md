@@ -2,7 +2,7 @@
 
 Local **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
 
-This repo is currently at **V4**.
+This repo is currently at **V5**.
 
 ---
 
@@ -30,8 +30,29 @@ Funds move wallet → merchant. The platform does not custody buyer funds.
 | **V1** | Done | Manually wrap one paid-style flow (MBTA demo + $0.01 USDC testnet settle) |
 | **V2** | Done | Auto-discover Base Sepolia Bazaar APIs and wrap many as MCP tools with real x402 payment |
 | **V3** | Done | Smart arbitrage: search, compare prices, pick cheapest API for a task (with failover) |
-| **V4** | **Current** | Track success/latency; economy vs verified routing tiers |
-| **V5** | Planned | Cloud host, public registries, `agent.json` for crawlers |
+| **V4** | Done | Track success/latency; economy vs verified routing tiers |
+| **V5** | **Current** | Cloud host (GCP Cloud Run), public `agent.json`, remote MCP HTTP |
+
+---
+
+## What V5 does
+
+V5 exposes the same dispatcher over the public internet:
+
+| Surface | Path |
+|---|---|
+| Health | `GET /health` |
+| Agent discovery | `GET /.well-known/agent.json` |
+| MCP (Streamable HTTP) | `ALL /mcp` |
+| Local stdio (Cursor) | `npm start` |
+
+Deploy target: **GCP Cloud Run** project `experiment-jegf-personal`.
+
+```bash
+npm run start:http          # local HTTP on :8080
+npm run deploy:gcp          # build + deploy to Cloud Run
+$env:PUBLIC_BASE_URL='https://...run.app'; npm run test:v5
+```
 
 ---
 
@@ -160,11 +181,27 @@ Send Base Sepolia **USDC** (and a little **ETH**) to the printed `evmAddress`.
 
 ## Run
 
-### MCP server (stdio)
+### Local MCP (stdio — Cursor)
 
 ```bash
 npm start
 ```
+
+### Local HTTP MCP (V5)
+
+```bash
+npm run start:http
+```
+
+Then open `http://127.0.0.1:8080/health` and `http://127.0.0.1:8080/.well-known/agent.json`.
+
+### Deploy to GCP Cloud Run
+
+```bash
+npm run deploy:gcp
+```
+
+Uses project `experiment-jegf-personal`, region `us-central1`, service `x402dispatcher`. Secrets are read from local `.env` on first create (`CDP_*`, `MAX_PRICE_USD`).
 
 ### Cursor MCP config
 
@@ -209,7 +246,19 @@ At startup, x402dispatcher also registers one MCP tool per discovered Bazaar res
 
 ## Testing
 
-### V4 end-to-end (recommended)
+### V5 HTTP (cloud or local)
+
+With `npm run start:http` running locally (or after deploy):
+
+```bash
+npm run test:v5
+# or against Cloud Run:
+$env:PUBLIC_BASE_URL='https://YOUR-SERVICE-uc.a.run.app'; npm run test:v5
+```
+
+Expect: `V5 HTTP SMOKE TEST PASSED`
+
+### V4 end-to-end
 
 Seeds two economy weather calls, promotes the winner into Verified, then quotes/routes with `tier=verified`:
 

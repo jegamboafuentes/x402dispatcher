@@ -28,6 +28,6 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 - **V1 (MVP)**: Manually wrap a single x402-gated API using a local MCP server, adding a markup to prove the automated payment flow.
 - **V2**: Automate multi-tool discovery by connecting to the public catalog and dynamically wrapping dozens of APIs.
 - **V3**: Implement smart arbitrage routing to dynamically search, compare prices, and select the cheapest generic API for a given task.
-- **V4 (current)**: Track API success rates and speed to curate a premium "Verified" routing tier for high-paying AI developers.
-- **V5**: Host the server on the cloud, list the platform on public AI registries, and expose an `agent.json` file to attract autonomous web crawlers.
+- **V4**: Track API success rates and speed to curate a premium "Verified" routing tier for high-paying AI developers.
+- **V5 (current)**: Host the server on the cloud (GCP Cloud Run), list the platform on public AI registries, and expose an `agent.json` file to attract autonomous web crawlers.
 

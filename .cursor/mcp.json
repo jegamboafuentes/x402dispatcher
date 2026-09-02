@@ -4,6 +4,9 @@
       "url": "https://docs.cdp.coinbase.com/mcp"
     },
     "x402dispatcher": {
+      "url": "https://x402dispatcher-tya4j534cq-uc.a.run.app/mcp"
+    },
+    "x402dispatcher-local": {
       "command": "npx",
       "args": ["tsx", "src/index.ts"],
       "cwd": "${workspaceFolder}"

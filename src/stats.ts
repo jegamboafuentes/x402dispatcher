@@ -7,7 +7,9 @@ import {
 } from "./config.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DATA_DIR = path.join(ROOT, "data");
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(ROOT, "data");
 const STATS_PATH = path.join(DATA_DIR, "api-stats.json");
 
 export type ApiOutcome = {

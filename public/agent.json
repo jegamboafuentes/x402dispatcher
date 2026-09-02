@@ -1,0 +1,22 @@
+{
+  "name": "x402dispatcher",
+  "version": "5.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher MCP server with economy/verified routing",
+  "homepage": "https://github.com/jegamboafuentes/x402dispatcher",
+  "schema_version": "0.1.0",
+  "mcp": {
+    "transport": "streamable-http",
+    "path": "/mcp"
+  },
+  "networks": ["eip155:84532"],
+  "capabilities": [
+    "search_bazaar",
+    "quote_route",
+    "route_and_call",
+    "call_x402_api",
+    "get_api_stats",
+    "list_verified_apis",
+    "get_mbta_predictions"
+  ],
+  "tiers": ["economy", "verified"]
+}

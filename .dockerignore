@@ -1,0 +1,12 @@
+node_modules
+.git
+.cursor
+data
+.tmp
+.env
+.env.*
+!.env.example
+*.log
+README.md
+scripts
+agent-transcripts
