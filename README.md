@@ -2,7 +2,7 @@
 
 Local **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
 
-This repo is currently at **V5** (Base mainnet production proven). **V6** is next: inbound agent paywall.
+This repo is currently at **V6** (inbound paywall). Use `X402_ENV` for Sepolia vs Base mainnet.
 
 ---
 
@@ -31,8 +31,8 @@ Funds move on-chain (wallet → seller / Merchant). The platform does not custod
 | **V2** | Done | Auto-discover Base Sepolia Bazaar APIs and wrap many as MCP tools with real x402 payment |
 | **V3** | Done | Smart arbitrage: search, compare prices, pick cheapest API for a task (with failover) |
 | **V4** | Done | Track success/latency; economy vs verified routing tiers |
-| **V5** | **Current** | Cloud Run + `agent.json` + HTTP MCP; `X402_ENV` for Sepolia vs Base mainnet |
-| **V6** | Next | **Inbound paywall** — calling agents pay x402dispatcher before upstream proxy |
+| **V5** | Done | Cloud Run + `agent.json` + HTTP MCP; `X402_ENV` for Sepolia vs Base mainnet |
+| **V6** | **Current** | **Inbound paywall** — calling agents pay Merchant before upstream proxy |
 | **V7** | Planned | Cashflow ledger (money in / out / markup) via API + MCP |
 | **V8** | Planned | Operator monitoring UI (balances, PnL, recent txs) |
 | **V9** | Planned | Registries, auth/rate limits, durable stats (beyond `/tmp`) |
@@ -41,18 +41,48 @@ You do **not** need a UI for agents — MCP + `agent.json` is the product surfac
 
 ---
 
-## What V6 will do
+## What V6 does
 
-Today outbound works: Treasury pays sellers; markup lands in Merchant. External agents can still call Cloud Run **without paying you**.
+Calling agents must pay **you** (Merchant) before the proxy spends Treasury:
 
-V6 adds the missing business gate:
+| Tool | Free / Paid |
+|---|---|
+| `quote_route`, `search_bazaar`, `list_*`, `get_api_stats`, `get_paywall_status` | Free |
+| `route_and_call`, `call_x402_api`, `get_mbta_predictions`, dynamic Bazaar tools | **Paid inbound** |
 
-1. Agent calls a paid tool / HTTP route on x402dispatcher
-2. Server returns **HTTP 402** with your price (upstream + markup)
-3. Agent settles USDC to **Merchant** (or Treasury)
-4. Only then does the proxy pay the upstream Bazaar API and return data
+Flow:
 
-That turns the platform from a self-funded demo into a solo revenue business.
+1. Agent calls a paid tool
+2. Server challenges with x402 (price = `INBOUND_PRICE_USD`, default `MAX_PRICE_USD`)
+3. Agent settles USDC → **Merchant**
+4. Proxy pays upstream from **Treasury** and returns data
+
+Env:
+
+```env
+INBOUND_PAYWALL=true          # set false to disable (operator-only treasury spend)
+INBOUND_PRICE_USD=0.01        # flat inbound fee (clamped to MAX_PRICE_USD)
+X402_ENV=development|production
+# X402_PAY_TO=0x...           # optional Merchant override
+```
+
+### Test V6 locally (Sepolia)
+
+```bash
+# terminal 1
+$env:X402_ENV='development'; $env:INBOUND_PAYWALL='true'; npm run start:http
+
+# terminal 2 — first run prints Buyer address; fund with Sepolia USDC
+$env:X402_ENV='development'; $env:PUBLIC_BASE_URL='http://127.0.0.1:8080'; npm run test:v6
+```
+
+### Test V6 on production (real USDC)
+
+```bash
+$env:X402_ENV='production'; $env:PUBLIC_BASE_URL='https://YOUR-SERVICE.run.app'; npm run test:v6
+```
+
+Fund the printed **Buyer** CDP account with Base mainnet USDC. Expect: free `quote_route` OK, then paid `route_and_call` with inbound settlement + upstream weather.
 
 ---
 
@@ -209,6 +239,9 @@ cp .env.example .env
 | `VERIFIED_MIN_SAMPLES` | Optional | Min successful-history calls for Verified (default `2`) |
 | `VERIFIED_MIN_SUCCESS_RATE` | Optional | Min success rate 0–1 for Verified (default `0.8`) |
 | `X402_ENV` | Optional | `development` (Base Sepolia, default) or `production` (Base mainnet, real USDC) |
+| `INBOUND_PAYWALL` | Optional | V6: `true` (default) to charge callers; `false` for treasury-only operator mode |
+| `INBOUND_PRICE_USD` | Optional | V6 flat inbound fee (default = `MAX_PRICE_USD`) |
+| `X402_PAY_TO` | Optional | Override Merchant receive address for inbound payments |
 | `CDP_PRIVATE_KEY` | Optional | Only if you import a specific EOA into CDP (not used by default V2+ payer path) |
 
 Never commit `.env`. Only `.env.example` is tracked.

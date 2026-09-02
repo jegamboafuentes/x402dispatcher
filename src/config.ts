@@ -174,3 +174,34 @@ export function atomicToUsd(amount: bigint | string): number {
 export function usdToAtomic(usd: number): bigint {
   return parseUnits(usd.toFixed(6), USDC_DECIMALS);
 }
+
+/** When true, paid MCP/HTTP tools require inbound x402 payment to Merchant first. */
+export function isInboundPaywallEnabled(): boolean {
+  const raw = (process.env.INBOUND_PAYWALL ?? "true").trim().toLowerCase();
+  return raw !== "0" && raw !== "false" && raw !== "off" && raw !== "no";
+}
+
+/**
+ * Flat inbound price charged to calling agents (USD).
+ * Defaults to MAX_PRICE_USD so inbound never exceeds the operator spend cap.
+ */
+export function getInboundPriceUsd(): number {
+  const raw = process.env.INBOUND_PRICE_USD;
+  if (raw === undefined || raw === "") {
+    return getMaxPriceUsd();
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error("INBOUND_PRICE_USD must be a non-negative number");
+  }
+  return Math.min(parsed, getMaxPriceUsd());
+}
+
+/** x402 price string, e.g. "$0.01". */
+export function formatUsdPrice(usd: number): `$${string}` {
+  const clamped = Math.max(0, usd);
+  // Keep up to 6 decimals, trim trailing zeros for readability.
+  const fixed = clamped.toFixed(6).replace(/\.?0+$/, "");
+  return `$${fixed === "" ? "0" : fixed}`;
+}
+

@@ -14,10 +14,10 @@ async function main() {
   const count = await warmDiscovery();
   console.error(`Discovered and registered ${count} ${getNetworkLabel()} x402 APIs`);
 
-  const server = createMcpServer();
+  const server = await createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("x402dispatcher MCP server running on stdio (V5)");
+  console.error("x402dispatcher MCP server running on stdio (V6)");
 }
 
 main().catch((error) => {

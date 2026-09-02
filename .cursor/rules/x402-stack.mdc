@@ -9,6 +9,6 @@ alwaysApply: false
 - Do not manually construct HTTP 402 retry loops; rely on SDK helpers.
 - Drive network selection via `X402_ENV` in `src/config.ts` (`development` = Base Sepolia, `production` = Base mainnet). Never hardcode only Sepolia in new code.
 - Outbound payments: Treasury signs via CDP and pays upstream Bazaar sellers; collect markup with Treasury → Merchant USDC transfer (needs a little ETH on Base for gas).
-- Inbound paywall (V6): callers should pay x402dispatcher first; then the proxy settles upstream from Treasury/Merchant float.
+- Inbound paywall (V6): callers pay Merchant via `@x402/mcp` `createPaymentWrapper` + CDP facilitator before proxy spends Treasury. Toggle with `INBOUND_PAYWALL`.
 - Prefer `eip155:8453` / `eip155:84532` CAIP-2 network ids when filtering Bazaar accepts.
 - Reference canonical examples from Coinbase CDP x402 docs rather than guessing implementations.

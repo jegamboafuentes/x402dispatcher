@@ -103,7 +103,7 @@ gcloud run deploy $Service `
   --timeout 300 `
   --max-instances 3 `
   --set-secrets "CDP_API_KEY_ID=CDP_API_KEY_ID:latest,CDP_API_KEY_SECRET=CDP_API_KEY_SECRET:latest,CDP_WALLET_SECRET=CDP_WALLET_SECRET:latest,MAX_PRICE_USD=MAX_PRICE_USD:latest" `
-  --set-env-vars "HOST=0.0.0.0,DATA_DIR=/tmp/x402dispatcher-data,MARKUP_BPS=1000,DISCOVERY_LIMIT=40,VERIFIED_MIN_SAMPLES=2,VERIFIED_MIN_SUCCESS_RATE=0.8,X402_ENV=$X402Env" `
+  --set-env-vars "HOST=0.0.0.0,DATA_DIR=/tmp/x402dispatcher-data,MARKUP_BPS=1000,DISCOVERY_LIMIT=40,VERIFIED_MIN_SAMPLES=2,VERIFIED_MIN_SUCCESS_RATE=0.8,X402_ENV=$X402Env,INBOUND_PAYWALL=true,INBOUND_PRICE_USD=0.01" `
   --project $ProjectId
 
 $url = gcloud run services describe $Service --region $Region --project $ProjectId --format="value(status.url)"

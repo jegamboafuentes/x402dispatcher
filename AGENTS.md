@@ -24,10 +24,8 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 | Stage | Who pays whom | Status |
 |---|---|---|
 | Outbound x402 | **Treasury → upstream seller** | Live (V2–V5) |
-| Markup | **Treasury → Merchant** (operator profit) | Live (needs ETH for gas on Base) |
-| Inbound x402 | **Calling agent → Merchant/Treasury** | **V6 (next)** |
-
-Until V6, Cloud Run spends the operator’s Treasury float; markup only moves USDC between the operator’s own wallets.
+| Markup | **Treasury → Merchant** (operator profit when inbound off / float model) | Live |
+| Inbound x402 | **Calling agent → Merchant** | **Live (V6)** |
 
 ## Phased Execution Roadmap
 
@@ -35,8 +33,8 @@ Until V6, Cloud Run spends the operator’s Treasury float; markup only moves US
 - **V2**: Automate multi-tool discovery by connecting to the public catalog and dynamically wrapping dozens of APIs.
 - **V3**: Implement smart arbitrage routing to dynamically search, compare prices, and select the cheapest generic API for a given task.
 - **V4**: Track API success rates and speed to curate a premium "Verified" routing tier for high-paying AI developers.
-- **V5 (current)**: Host on GCP Cloud Run, expose `agent.json` + Streamable HTTP MCP, support `X402_ENV=production` for real Base mainnet USDC.
-- **V6 (next)**: Inbound paywall — charge calling agents via x402 before proxying; true customer revenue.
+- **V5**: Host on GCP Cloud Run, expose `agent.json` + Streamable HTTP MCP, support `X402_ENV=production` for real Base mainnet USDC.
+- **V6 (current)**: Inbound paywall — charge calling agents via x402 before proxying; true customer revenue (`INBOUND_PAYWALL`, Merchant `payTo`).
 - **V7**: Cashflow ledger — persist money-in / money-out / markup events and balances (API + MCP tools first).
 - **V8**: Operator monitoring UI — dashboard for treasury/merchant balances, PnL, recent settlements.
 - **V9**: Public distribution hardening — registries (Glama/Smithery), auth/rate limits, durable stats storage.

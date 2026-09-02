@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "5.0.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher MCP server with economy/verified routing",
+  "version": "6.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher MCP with inbound paywall and economy/verified routing",
   "homepage": "https://github.com/jegamboafuentes/x402dispatcher",
   "schema_version": "0.1.0",
   "mcp": {
@@ -16,6 +16,20 @@
     "call_x402_api",
     "get_api_stats",
     "list_verified_apis",
+    "get_mbta_predictions",
+    "get_paywall_status"
+  ],
+  "free_tools": [
+    "quote_route",
+    "search_bazaar",
+    "list_discovered_apis",
+    "get_api_stats",
+    "list_verified_apis",
+    "get_paywall_status"
+  ],
+  "paid_tools": [
+    "route_and_call",
+    "call_x402_api",
     "get_mbta_predictions"
   ],
   "tiers": ["economy", "verified"]

@@ -9,7 +9,16 @@ import {
   logStartupBanner,
   warmDiscovery,
 } from "./server.js";
-import { getMaxPriceUsd, getMarkupBps, getNetworkLabel, getX402Environment, getNetworkCaip2 } from "./config.js";
+import {
+  getInboundPriceUsd,
+  getMaxPriceUsd,
+  getMarkupBps,
+  getNetworkCaip2,
+  getNetworkLabel,
+  getX402Environment,
+  isInboundPaywallEnabled,
+} from "./config.js";
+import { getInboundPaywallPublicStatus } from "./inbound.js";
 import { getStatsPath } from "./stats.js";
 
 dotenv.config({ quiet: true });
@@ -32,9 +41,8 @@ function resolvePublicBaseUrl(req?: { protocol?: string; get?: (h: string) => st
 }
 
 async function handleMcp(req: import("express").Request, res: import("express").Response) {
-  const server = createMcpServer();
+  const server = await createMcpServer();
   const transport = new StreamableHTTPServerTransport({
-    // Stateless mode: Cloud Run safe across instances / cold starts.
     sessionIdGenerator: undefined,
   });
 
@@ -70,11 +78,11 @@ async function main() {
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, Authorization",
+      "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, Authorization, PAYMENT-SIGNATURE, Payment-Signature",
     );
     res.setHeader(
       "Access-Control-Expose-Headers",
-      "Mcp-Session-Id, Mcp-Protocol-Version",
+      "Mcp-Session-Id, Mcp-Protocol-Version, PAYMENT-REQUIRED, PAYMENT-RESPONSE",
     );
     if (req.method === "OPTIONS") {
       res.status(204).end();
@@ -83,7 +91,7 @@ async function main() {
     next();
   });
 
-  app.get("/health", (_req, res) => {
+  app.get("/health", async (_req, res) => {
     res.json({
       ok: true,
       service: "x402dispatcher",
@@ -94,27 +102,32 @@ async function main() {
       warmed_apis: getWarmedApis().length,
       max_price_usd: getMaxPriceUsd(),
       markup_bps: getMarkupBps(),
+      inbound_paywall: await getInboundPaywallPublicStatus(),
       stats_path: getStatsPath(),
     });
   });
 
-  app.get(["/agent.json", "/.well-known/agent.json"], (req, res) => {
-    const agent = buildAgentJson(resolvePublicBaseUrl(req));
+  app.get(["/agent.json", "/.well-known/agent.json"], async (req, res) => {
+    const agent = await buildAgentJson(resolvePublicBaseUrl(req));
     res.setHeader("Cache-Control", "public, max-age=60");
     res.json(agent);
   });
 
-  app.get("/", (req, res) => {
+  app.get("/", async (req, res) => {
     res.json({
       service: "x402dispatcher",
       version: APP_VERSION,
-      message: "x402 Bazaar dispatcher MCP server",
+      message: "x402 Bazaar dispatcher MCP server (V6 inbound paywall)",
       links: {
         health: "/health",
         agent: "/.well-known/agent.json",
         mcp: "/mcp",
       },
       public_base_url: resolvePublicBaseUrl(req),
+      inbound_paywall: {
+        enabled: isInboundPaywallEnabled(),
+        inbound_price_usd: getInboundPriceUsd(),
+      },
     });
   });
 
@@ -123,7 +136,7 @@ async function main() {
   });
 
   app.listen(PORT, HOST, () => {
-    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V5)`);
+    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V6)`);
     console.error(`Health: http://${HOST}:${PORT}/health`);
     console.error(`Agent:  http://${HOST}:${PORT}/.well-known/agent.json`);
     console.error(`MCP:    http://${HOST}:${PORT}/mcp`);

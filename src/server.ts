@@ -1,7 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  formatUsdPrice,
   getDiscoveryLimit,
+  getInboundPriceUsd,
   getMarkupBps,
   getMaxPriceUsd,
   getNetworkCaip2,
@@ -10,12 +12,18 @@ import {
   getVerifiedMinSamples,
   getVerifiedMinSuccessRate,
   getX402Environment,
+  isInboundPaywallEnabled,
 } from "./config.js";
 import {
   discoverApis,
   summarizeApi,
   type DiscoveredApi,
 } from "./discovery.js";
+import {
+  createInboundPaidTool,
+  getInboundPaywallPublicStatus,
+  getMerchantPayToAddress,
+} from "./inbound.js";
 import {
   callDiscoveredApi,
   estimateTotalUsd,
@@ -31,7 +39,7 @@ import {
   recordOutcome,
 } from "./stats.js";
 
-export const APP_VERSION = "5.0.0";
+export const APP_VERSION = "6.0.0";
 
 const tierSchema = z
   .enum(["economy", "verified"])
@@ -62,7 +70,7 @@ export async function warmDiscovery(): Promise<number> {
 
 export async function logStartupBanner(mode: "stdio" | "http"): Promise<void> {
   console.error(
-    `x402dispatcher V5 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()} VERIFIED_MIN_SAMPLES=${getVerifiedMinSamples()} VERIFIED_MIN_SUCCESS_RATE=${getVerifiedMinSuccessRate()}`,
+    `x402dispatcher V6 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()}`,
   );
   console.error(`Stats store: ${getStatsPath()}`);
   try {
@@ -72,6 +80,18 @@ export async function logStartupBanner(mode: "stdio" | "http"): Promise<void> {
     console.error(
       `Warning: could not resolve payer address yet (${error instanceof Error ? error.message : error})`,
     );
+  }
+  if (isInboundPaywallEnabled()) {
+    try {
+      const payTo = await getMerchantPayToAddress();
+      console.error(`Inbound paywall ON — agents pay Merchant ${payTo} ${formatUsdPrice(getInboundPriceUsd())} before paid tools`);
+    } catch (error) {
+      console.error(
+        `Warning: could not resolve Merchant payTo (${error instanceof Error ? error.message : error})`,
+      );
+    }
+  } else {
+    console.error("Inbound paywall OFF — paid tools run without caller payment (operator Treasury only)");
   }
 }
 
@@ -131,12 +151,24 @@ async function callWithStats(
  * Build a fresh MCP server instance with all tools registered.
  * Safe to call per HTTP request (stateless Cloud Run) or once for stdio.
  */
-export function createMcpServer(): McpServer {
+export async function createMcpServer(): Promise<McpServer> {
   const catalog = new Map<string, DiscoveredApi>();
   const networkLabel = getNetworkLabel();
+  const inboundPrice = getInboundPriceUsd();
+  const paywallOn = isInboundPaywallEnabled();
   const server = new McpServer({
     name: "x402dispatcher",
     version: APP_VERSION,
+  });
+
+  const paidDefault = await createInboundPaidTool({
+    priceUsd: inboundPrice,
+    description: `x402dispatcher paid tool — ${formatUsdPrice(inboundPrice)} USDC inbound to Merchant`,
+  });
+  const paidMbta = await createInboundPaidTool({
+    priceUsd: Math.min(0.01, getMaxPriceUsd()),
+    toolNameHint: "get_mbta_predictions",
+    description: "MBTA demo — inbound payment then treasury settle",
   });
 
   function rememberApis(apis: DiscoveredApi[]) {
@@ -155,12 +187,21 @@ export function createMcpServer(): McpServer {
     catalog.set(api.url, api);
 
     const totalUsd = estimateTotalUsd(api.upstreamPriceUsd);
+    const toolPrice = Math.min(totalUsd, getMaxPriceUsd());
+    const paidTool = await createInboundPaidTool({
+      priceUsd: toolPrice,
+      toolNameHint: api.toolName,
+      description: `Proxy ${api.url} — inbound ${formatUsdPrice(toolPrice)}`,
+    });
+
     server.registerTool(
       api.toolName,
       {
         title: api.toolName,
         description: [
-          `[x402dispatcher · $${totalUsd.toFixed(4)} incl. markup]`,
+          paywallOn
+            ? `[PAID inbound ${formatUsdPrice(toolPrice)} → then proxy $${totalUsd.toFixed(4)}]`
+            : `[x402dispatcher · $${totalUsd.toFixed(4)} incl. markup]`,
           api.description,
           `Upstream: ${api.url}`,
           `Method: ${api.method}`,
@@ -181,14 +222,14 @@ export function createMcpServer(): McpServer {
             .describe("Optional JSON body for non-GET requests"),
         },
       },
-      async ({ query, body }) => {
+      paidTool(async ({ query, body }) => {
         try {
           const result = await callWithStats(api, { query, body }, api.toolName);
           return toolOk(result);
         } catch (error) {
           return toolError(api.toolName, error);
         }
-      },
+      }),
     );
   }
 
@@ -197,7 +238,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Quote Route",
       description:
-        "Search the x402 Bazaar for APIs matching a task and rank them. tier=economy sorts by price; tier=verified keeps only reliable APIs and ranks by success/latency/price score. Does not pay.",
+        "FREE. Search the x402 Bazaar for APIs matching a task and rank them. tier=economy sorts by price; tier=verified keeps only reliable APIs and ranks by success/latency/price score. Does not pay.",
       inputSchema: {
         task: z
           .string()
@@ -235,6 +276,7 @@ export function createMcpServer(): McpServer {
           tier: selectedTier,
           max_price_usd: budget,
           markup_bps: getMarkupBps(),
+          inbound_paywall: await getInboundPaywallPublicStatus(),
           verified_policy: {
             min_samples: getVerifiedMinSamples(),
             min_success_rate: getVerifiedMinSuccessRate(),
@@ -254,8 +296,15 @@ export function createMcpServer(): McpServer {
     "route_and_call",
     {
       title: "Route and Call",
-      description:
-        `Route a task to a ${networkLabel} x402 API, pay, and return data. economy = cheapest; verified = reliability-scored. Records latency/success for the Verified tier. Failover on errors.`,
+      description: [
+        paywallOn
+          ? `PAID inbound ${formatUsdPrice(inboundPrice)} USDC to Merchant, then`
+          : "",
+        `route a task to a ${networkLabel} x402 API, pay upstream from Treasury, and return data.`,
+        "economy = cheapest; verified = reliability-scored. Failover on errors.",
+      ]
+        .filter(Boolean)
+        .join(" "),
       inputSchema: {
         task: z
           .string()
@@ -284,7 +333,7 @@ export function createMcpServer(): McpServer {
           .describe("Optional JSON body overrides"),
       },
     },
-    async ({ task, tier, max_price_usd, max_attempts, query, body }) => {
+    paidDefault(async ({ task, tier, max_price_usd, max_attempts, query, body }) => {
       try {
         const budget = Math.min(max_price_usd ?? getMaxPriceUsd(), getMaxPriceUsd());
         const result = await routeAndCall({
@@ -295,11 +344,14 @@ export function createMcpServer(): McpServer {
           query,
           body,
         });
-        return toolOk(result);
+        return toolOk({
+          inbound_paywall: await getInboundPaywallPublicStatus(),
+          ...result,
+        });
       } catch (error) {
         return toolError("route_and_call", error);
       }
-    },
+    }),
   );
 
   server.registerTool(
@@ -307,7 +359,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Get API Stats",
       description:
-        "Show success rate and latency stats collected from x402dispatcher paid calls. Omit url to list all.",
+        "FREE. Show success rate and latency stats collected from x402dispatcher paid calls. Omit url to list all.",
       inputSchema: {
         url: z
           .string()
@@ -353,7 +405,7 @@ export function createMcpServer(): McpServer {
     {
       title: "List Verified APIs",
       description:
-        "List upstream APIs that currently qualify for the Verified routing tier based on success/latency history.",
+        "FREE. List upstream APIs that currently qualify for the Verified routing tier based on success/latency history.",
     },
     async () => {
       const verified = listVerifiedStats();
@@ -373,8 +425,7 @@ export function createMcpServer(): McpServer {
     "search_bazaar",
     {
       title: "Search x402 Bazaar",
-      description:
-        `Search the public Coinbase x402 Bazaar catalog for ${networkLabel} paid APIs at or below MAX_PRICE_USD, then cache matches for call_x402_api.`,
+      description: `FREE. Search the public Coinbase x402 Bazaar catalog for ${networkLabel} paid APIs at or below MAX_PRICE_USD, then cache matches for call_x402_api.`,
       inputSchema: {
         query: z
           .string()
@@ -414,8 +465,7 @@ export function createMcpServer(): McpServer {
     "list_discovered_apis",
     {
       title: "List Discovered APIs",
-      description:
-        `List x402dispatcher APIs currently registered from Bazaar discovery (${networkLabel}, within MAX_PRICE_USD).`,
+      description: `FREE. List x402dispatcher APIs currently registered from Bazaar discovery (${networkLabel}, within MAX_PRICE_USD).`,
     },
     async () => {
       const unique = [...new Map([...catalog.values()].map((api) => [api.url, api])).values()];
@@ -424,6 +474,7 @@ export function createMcpServer(): McpServer {
         count: unique.length,
         max_price_usd: getMaxPriceUsd(),
         markup_bps: getMarkupBps(),
+        inbound_paywall: await getInboundPaywallPublicStatus(),
         apis: unique.map((api) => ({
           ...summarizeApi(api),
           total_price_usd: estimateTotalUsd(api.upstreamPriceUsd),
@@ -437,8 +488,13 @@ export function createMcpServer(): McpServer {
     "call_x402_api",
     {
       title: "Call x402 API",
-      description:
-        "Pay for and call a discovered Bazaar HTTP resource through the x402dispatcher treasury. Pass tool_name from list_discovered_apis / search_bazaar, or a full resource URL.",
+      description: [
+        paywallOn ? `PAID inbound ${formatUsdPrice(inboundPrice)} USDC, then` : "",
+        "pay for and call a discovered Bazaar HTTP resource through the x402dispatcher treasury.",
+        "Pass tool_name from list_discovered_apis / search_bazaar, or a full resource URL.",
+      ]
+        .filter(Boolean)
+        .join(" "),
       inputSchema: {
         tool_name_or_url: z
           .string()
@@ -454,7 +510,7 @@ export function createMcpServer(): McpServer {
           .describe("Optional JSON body"),
       },
     },
-    async ({ tool_name_or_url, query, body }) => {
+    paidDefault(async ({ tool_name_or_url, query, body }) => {
       try {
         let api = catalog.get(tool_name_or_url);
         if (!api) {
@@ -476,19 +532,26 @@ export function createMcpServer(): McpServer {
           );
         }
         const result = await callWithStats(api, { query, body }, tool_name_or_url);
-        return toolOk(result);
+        return toolOk({
+          inbound_paywall: await getInboundPaywallPublicStatus(),
+          ...result,
+        });
       } catch (error) {
         return toolError("call_x402_api", error);
       }
-    },
+    }),
   );
 
   server.registerTool(
     "get_mbta_predictions",
     {
       title: "Get MBTA Predictions",
-      description:
-        `V1 demo tool: settle a $0.01 USDC ${networkLabel} payment through the x402dispatcher treasury, then return live MBTA arrival predictions for a stop.`,
+      description: [
+        paywallOn ? "PAID inbound $0.01, then" : "",
+        `V1 demo: settle $0.01 USDC ${networkLabel} via treasury, then return live MBTA predictions.`,
+      ]
+        .filter(Boolean)
+        .join(" "),
       inputSchema: {
         stop_id: z
           .string()
@@ -496,28 +559,43 @@ export function createMcpServer(): McpServer {
           .describe("MBTA stop ID, for example place-pktrm or 70065"),
       },
     },
-    async ({ stop_id }) => {
+    paidMbta(async ({ stop_id }) => {
       try {
         const payment = await settleSimulatedMbtaPayment();
         const predictions = await fetchMbtaPredictions(stop_id);
-        return toolOk({ payment, predictions });
+        return toolOk({
+          inbound_paywall: await getInboundPaywallPublicStatus(),
+          payment,
+          predictions,
+        });
       } catch (error) {
         return toolError("get_mbta_predictions", error);
       }
+    }),
+  );
+
+  server.registerTool(
+    "get_paywall_status",
+    {
+      title: "Get Paywall Status",
+      description:
+        "FREE. Show whether inbound x402 paywall is enabled, inbound price, network, and Merchant payTo address.",
     },
+    async () => toolOk(await getInboundPaywallPublicStatus()),
   );
 
   return server;
 }
 
-export function buildAgentJson(baseUrl: string) {
+export async function buildAgentJson(baseUrl: string) {
   const origin = baseUrl.replace(/\/$/, "");
+  const inbound = await getInboundPaywallPublicStatus();
   return {
     schema_version: "0.1.0",
     name: "x402dispatcher",
     version: APP_VERSION,
     description:
-      "x402 Bazaar dispatcher for AI agents: discover paid APIs, route by economy or verified tier, settle USDC micropayments via Coinbase CDP, and return upstream data.",
+      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC (V6), route by economy or verified tier, settle upstream via Coinbase CDP, and return data.",
     homepage: origin,
     mcp: {
       transport: "streamable-http",
@@ -534,6 +612,7 @@ export function buildAgentJson(baseUrl: string) {
       network: getNetworkName(),
       max_price_usd: getMaxPriceUsd(),
       markup_bps: getMarkupBps(),
+      inbound_paywall: inbound,
     },
     capabilities: [
       "search_bazaar",
@@ -544,7 +623,17 @@ export function buildAgentJson(baseUrl: string) {
       "get_api_stats",
       "list_verified_apis",
       "get_mbta_predictions",
+      "get_paywall_status",
     ],
+    free_tools: [
+      "quote_route",
+      "search_bazaar",
+      "list_discovered_apis",
+      "get_api_stats",
+      "list_verified_apis",
+      "get_paywall_status",
+    ],
+    paid_tools: ["route_and_call", "call_x402_api", "get_mbta_predictions", "dynamic bazaar tools"],
     tiers: ["economy", "verified"],
   };
 }
