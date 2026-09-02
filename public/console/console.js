@@ -110,7 +110,7 @@
       `merchant  ${pad(money(m.usdc), 13)}  ${esc(eth(m.eth))}`,
       `  Basescan ${addrLink(m.address, m.explorer_url, network)}`,
       "",
-      `updated ${esc(formatEastern(wallets.updated_at))}`,
+      `updated ${esc(formatEastern(wallets.updated_at))}${wallets.cached ? "  (cached)" : ""}`,
     ];
     walletsEl.innerHTML = box("WALLETS", lines);
   }
@@ -240,16 +240,29 @@
 
   wireMcpLinks();
 
+  let lastWallets = null;
+
   async function refresh() {
     try {
-      const [health, pnl, cashflow, wallets] = await Promise.all([
+      const [health, pnl, cashflow, walletsOutcome] = await Promise.all([
         getJson("/health"),
         getJson("/v1/pnl"),
         getJson("/v1/cashflow?limit=25"),
-        getJson("/v1/wallets"),
+        fetch("/v1/wallets", { cache: "no-store" })
+          .then(async (res) => {
+            if (!res.ok) {
+              const body = await res.text();
+              throw new Error(`/v1/wallets → HTTP ${res.status}${body ? `: ${body.slice(0, 120)}` : ""}`);
+            }
+            return { ok: true, data: await res.json() };
+          })
+          .catch((error) => ({
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          })),
       ]);
 
-      metaEl.textContent = [
+      const baseMeta = [
         `v${health.version ?? "?"}`,
         `env=${health.x402_env ?? "?"}`,
         `net=${health.network_label ?? health.network ?? "?"}`,
@@ -257,9 +270,23 @@
         `inbound=${health.inbound_paywall?.enabled ? "ON" : "OFF"}`,
         `tz=ET (Boston)`,
         `refresh=${clock()}`,
-      ].join("  ·  ");
+      ];
 
-      renderWallets(wallets);
+      if (walletsOutcome.ok) {
+        lastWallets = walletsOutcome.data;
+        renderWallets(walletsOutcome.data);
+        metaEl.textContent = baseMeta.join("  ·  ");
+      } else if (lastWallets) {
+        renderWallets({ ...lastWallets, cached: true });
+        metaEl.innerHTML = `${esc(baseMeta.join("  ·  "))}  ·  <span class="warn">wallets RPC busy (cached)</span>`;
+      } else {
+        walletsEl.innerHTML = box("WALLETS", [
+          "waiting for Base RPC…",
+          esc(walletsOutcome.error || "unavailable"),
+        ]);
+        metaEl.innerHTML = `${esc(baseMeta.join("  ·  "))}  ·  <span class="warn">wallets RPC busy</span>`;
+      }
+
       renderPnl(pnl);
       renderLedger(cashflow);
     } catch (error) {
