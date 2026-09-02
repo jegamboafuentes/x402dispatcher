@@ -5,7 +5,8 @@ param(
   [string]$Service = "x402dispatcher",
   [string]$Repo = "x402dispatcher",
   [ValidateSet("development", "production")]
-  [string]$X402Env = "production"
+  [string]$X402Env = "production",
+  [string]$PublicBaseUrl = "https://402dispatcher.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -107,7 +108,7 @@ gcloud run deploy $Service `
   --project $ProjectId
 
 $url = gcloud run services describe $Service --region $Region --project $ProjectId --format="value(status.url)"
-$publicBase = if ($env:PUBLIC_BASE_URL) { $env:PUBLIC_BASE_URL.TrimEnd("/") } else { "https://402dispatcher.com" }
+$publicBase = $PublicBaseUrl.TrimEnd("/")
 Write-Host "Setting PUBLIC_BASE_URL=$publicBase (Cloud Run URL=$url) ..."
 gcloud run services update $Service `
   --region $Region `
