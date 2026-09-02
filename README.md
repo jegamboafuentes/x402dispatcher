@@ -34,7 +34,7 @@ Funds move on-chain (wallet → seller / Merchant). The platform does not custod
 | **V5** | Done | Cloud Run + `agent.json` + HTTP MCP; `X402_ENV` for Sepolia vs Base mainnet |
 | **V6** | Done | **Inbound paywall** — calling agents pay Merchant before upstream proxy |
 | **V7** | Done | Cashflow ledger (money in / out / markup) via API + MCP |
-| **V8** | **Current** | Operator monitoring UI (Linux console at `/`) |
+| **V8** | **Current (8.1)** | Operator monitoring UI (Linux console at `/`) + branding/SEO |
 | **V9** | Planned | Custom domain for public MCP / Cloud Run (GCP + DNS) |
 | **V10** | Planned | Registries, auth/rate limits, durable stats (beyond `/tmp`) |
 

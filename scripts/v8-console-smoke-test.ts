@@ -22,24 +22,58 @@ async function main() {
     "wallets-frame",
     "pnl-frame",
     "ledger-frame",
+    "info-open",
+    "information",
+    "GLOSSARY",
+    "MCP links",
+    "mcp-link",
+    "health-link",
+    "copy-btn",
+    "402dispatcherright.png",
+    "402dispatcherLogo.png",
+    "402dispatcherMascot.png",
+    'name="description"',
+    'property="og:image"',
+    "application/ld+json",
   ]) {
     if (!html.includes(needle)) {
       throw new Error(`Console HTML missing expected content: ${needle}`);
     }
   }
+  if (html.includes("__ORIGIN__")) {
+    throw new Error("Console HTML still contains unresolved __ORIGIN__ placeholders");
+  }
   console.log("console HTML ok");
 
-  const css = await fetch(`${BASE}/console/console.css`);
-  if (!css.ok) {
-    throw new Error(`/console/console.css failed: ${css.status}`);
+  for (const asset of [
+    "/console/console.css",
+    "/console/console.js",
+    "/images/402dispatcherright.png",
+    "/images/402dispatcherLogo.png",
+    "/images/402dispatcherMascot.png",
+    "/robots.txt",
+    "/sitemap.xml",
+  ]) {
+    const res = await fetch(`${BASE}${asset}`);
+    if (!res.ok) {
+      throw new Error(`${asset} failed: ${res.status}`);
+    }
   }
+  console.log("console assets + SEO endpoints ok");
 
   const js = await fetch(`${BASE}/console/console.js`);
   if (!js.ok) {
     throw new Error(`/console/console.js failed: ${js.status}`);
   }
   const jsText = await js.text();
-  for (const needle of ["WALLETS", "PNL", "RECENT SETTLEMENTS", "/v1/wallets"]) {
+  for (const needle of [
+    "WALLETS",
+    "PNL",
+    "RECENT SETTLEMENTS",
+    "/v1/wallets",
+    "America/New_York",
+    "basescan.org",
+  ]) {
     if (!jsText.includes(needle)) {
       throw new Error(`console.js missing expected content: ${needle}`);
     }
@@ -51,8 +85,8 @@ async function main() {
     throw new Error(`/health failed: ${health.status}`);
   }
   const healthJson = (await health.json()) as { version?: string; ok?: boolean };
-  if (!String(healthJson.version ?? "").startsWith("8.")) {
-    throw new Error(`Expected version 8.x, got ${healthJson.version}`);
+  if (!String(healthJson.version ?? "").startsWith("8.1")) {
+    throw new Error(`Expected version 8.1.x, got ${healthJson.version}`);
   }
   console.log(`health version=${healthJson.version}`);
 

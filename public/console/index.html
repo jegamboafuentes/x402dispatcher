@@ -3,7 +3,50 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>x402dispatcher — operator console</title>
+    <title>x402dispatcher — Operator Console | x402 Bazaar MCP for AI Agents</title>
+    <meta
+      name="description"
+      content="x402dispatcher operator console: monitor Treasury and Merchant USDC balances, PnL, and settlements for an x402 Bazaar aggregator MCP that lets AI agents discover and pay for APIs on Base."
+    />
+    <meta
+      name="keywords"
+      content="x402, MCP, AI agents, USDC, Base, Bazaar, micropayments, Coinbase CDP, operator console, dispatcher"
+    />
+    <meta name="author" content="Enrique Gamboa / Metaverse Professional" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#020803" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="canonical" href="__ORIGIN__/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="x402dispatcher" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="__ORIGIN__/" />
+    <meta
+      property="og:title"
+      content="x402dispatcher — Operator Console | x402 Bazaar MCP"
+    />
+    <meta
+      property="og:description"
+      content="Monitor wallets, PnL, and settlements for an x402 Bazaar aggregator that lets AI agents discover and pay for APIs with USDC on Base."
+    />
+    <meta property="og:image" content="__ORIGIN__/images/402dispatcherMascot.png" />
+    <meta property="og:image:alt" content="402 dispatcher mascot — retro computer robot with a smile" />
+    <meta property="og:image:type" content="image/png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="x402dispatcher — Operator Console" />
+    <meta
+      name="twitter:description"
+      content="Operator console for an x402 Bazaar MCP: wallets, PnL, and settlements on Base USDC."
+    />
+    <meta name="twitter:image" content="__ORIGIN__/images/402dispatcherMascot.png" />
+    <meta name="twitter:image:alt" content="402 dispatcher mascot — retro computer robot with a smile" />
+
+    <link rel="icon" type="image/png" href="/images/402dispatcherMascot.png" />
+    <link rel="apple-touch-icon" href="/images/402dispatcherMascot.png" />
+    <link rel="image_src" href="/images/402dispatcherMascot.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -11,11 +54,65 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/console/console.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "__ORIGIN__/#website",
+            "url": "__ORIGIN__/",
+            "name": "x402dispatcher",
+            "description": "Operator console for an x402 Bazaar aggregator MCP that discovers paywalled APIs and settles USDC micropayments for AI agents on Base.",
+            "inLanguage": "en",
+            "publisher": { "@id": "__ORIGIN__/#organization" },
+            "image": "__ORIGIN__/images/402dispatcherMascot.png"
+          },
+          {
+            "@type": "Organization",
+            "@id": "__ORIGIN__/#organization",
+            "name": "x402dispatcher",
+            "url": "__ORIGIN__/",
+            "logo": "__ORIGIN__/images/402dispatcherLogo.png",
+            "image": "__ORIGIN__/images/402dispatcherMascot.png",
+            "sameAs": [
+              "https://metaverseprofessional.tech/",
+              "https://enriquegamboa.info/",
+              "https://github.com/jegamboafuentes/x402dispatcher"
+            ]
+          },
+          {
+            "@type": "WebApplication",
+            "name": "x402dispatcher Operator Console",
+            "url": "__ORIGIN__/",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "description": "Linux-style operator dashboard for Treasury and Merchant balances, PnL, and recent x402 settlements.",
+            "image": "__ORIGIN__/images/402dispatcherMascot.png",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div class="crt" aria-hidden="true"></div>
     <main class="shell">
       <header class="header">
+        <div class="brand">
+          <img
+            class="brand-hero"
+            src="/images/402dispatcherright.png"
+            width="720"
+            height="405"
+            alt="402 dispatcher — furry logo wordmark with retro computer mascot holding a compass, cube, and book"
+          />
+        </div>
         <div class="prompt">
           <span class="user">root@x402dispatcher</span>:<span class="path">~</span>$
           <span class="cmd">./monitor --operator</span><span class="cursor" aria-hidden="true"></span>
@@ -23,34 +120,141 @@
         <div class="meta" id="meta">booting…</div>
       </header>
 
-      <section class="panel" id="wallets-panel">
+      <section class="panel" id="wallets-panel" aria-label="Wallets">
         <pre class="frame" id="wallets-frame">loading wallets…</pre>
       </section>
 
-      <section class="panel" id="pnl-panel">
+      <section class="panel" id="pnl-panel" aria-label="Profit and loss">
         <pre class="frame" id="pnl-frame">loading pnl…</pre>
       </section>
 
-      <section class="panel" id="ledger-panel">
+      <section class="panel" id="ledger-panel" aria-label="Recent settlements">
         <pre class="frame" id="ledger-frame">loading settlements…</pre>
       </section>
 
       <footer class="credits">
-        <div class="credits-line">── credits ──────────────────────────────────────────</div>
-        <div>
-          Run by
-          <a href="https://metaverseprofessional.tech/" target="_blank" rel="noopener noreferrer"
-            >https://metaverseprofessional.tech/</a
-          >
+        <div class="mcp-links" id="mcp-links">
+          <div class="credits-line">── MCP links ────────────────────────────────────────</div>
+          <div class="link-row">
+            <span class="link-label">MCP</span>
+            <a id="mcp-link" href="/mcp">/mcp</a>
+            <button type="button" class="copy-btn" data-copy-target="mcp-link" title="Copy MCP URL" aria-label="Copy MCP URL">
+              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <rect x="5" y="5" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.4" />
+                <rect x="3" y="3" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.4" />
+              </svg>
+            </button>
+            <span class="copy-status" data-copy-status="mcp-link" aria-live="polite"></span>
+          </div>
+          <div class="link-row">
+            <span class="link-label">Health</span>
+            <a id="health-link" href="/health">/health</a>
+            <button
+              type="button"
+              class="copy-btn"
+              data-copy-target="health-link"
+              title="Copy Health URL"
+              aria-label="Copy Health URL"
+            >
+              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <rect x="5" y="5" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.4" />
+                <rect x="3" y="3" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.4" />
+              </svg>
+            </button>
+            <span class="copy-status" data-copy-status="health-link" aria-live="polite"></span>
+          </div>
         </div>
-        <div>
-          Developed by
-          <a href="https://enriquegamboa.info/" target="_blank" rel="noopener noreferrer"
-            >https://enriquegamboa.info/</a
-          >
+
+        <div class="footer-actions">
+          <button type="button" class="info-btn" id="info-open" aria-haspopup="dialog">
+            [ information ]
+          </button>
+        </div>
+
+        <div class="credits-block">
+          <div class="credits-line">── credits ──────────────────────────────────────────</div>
+          <div>
+            Run by
+            <a href="https://metaverseprofessional.tech/" target="_blank" rel="noopener noreferrer"
+              >https://metaverseprofessional.tech/</a
+            >
+          </div>
+          <div>
+            Developed by
+            <a href="https://enriquegamboa.info/" target="_blank" rel="noopener noreferrer"
+              >https://enriquegamboa.info/</a
+            >
+          </div>
         </div>
       </footer>
     </main>
+
+    <div class="modal hidden" id="info-modal" role="dialog" aria-modal="true" aria-labelledby="info-title">
+      <div class="modal-backdrop" id="info-close-backdrop"></div>
+      <div class="modal-window">
+        <div class="modal-header">
+          <span id="info-title">INFORMATION</span>
+          <button type="button" class="info-btn" id="info-close" aria-label="Close">[ close ]</button>
+        </div>
+        <div class="modal-body">
+          <pre class="frame modal-frame">
+┌─ ABOUT ────────────────────────────────────────────┐
+│ x402dispatcher is a solo-operator Bazaar aggregator│
+│ for AI agents. It discovers paywalled APIs from the│
+│ Coinbase x402 catalog, wraps them as MCP tools,    │
+│ settles USDC micropayments on Base, and keeps a    │
+│ cashflow ledger so you can monitor the business.   │
+│                                                    │
+│ Agents pay inbound (→ Merchant). Treasury pays     │
+│ upstream sellers. Markup stays with the operator.  │
+│ No card custody — settlements are on-chain USDC.   │
+└────────────────────────────────────────────────────┘
+
+┌─ GLOSSARY ─────────────────────────────────────────┐
+│ PnL              Profit &amp; loss summary from the     │
+│                  cashflow ledger.                  │
+│                                                    │
+│ revenue (in)     Money received from calling       │
+│                  agents → Merchant (inbound x402). │
+│                                                    │
+│ cogs (out)       Cost of goods sold: Treasury →    │
+│                  upstream API seller payments.     │
+│                                                    │
+│ markup           Internal Treasury → Merchant      │
+│                  spread transfer (float model).    │
+│                                                    │
+│ gross profit     revenue − cogs (true margin when  │
+│                  inbound paywall is on).           │
+│                                                    │
+│ Treasury         Burner float wallet that pays     │
+│                  upstream APIs (needs USDC + ETH). │
+│                                                    │
+│ Merchant         Operator wallet that receives     │
+│                  inbound agent payments + markup.  │
+│                                                    │
+│ settlement       One ledger row: in / out / markup │
+│                  with optional Basescan tx link.   │
+│                                                    │
+│ inbound paywall  When ON, agents must pay before   │
+│                  paid MCP tools run.               │
+│                                                    │
+│ Basescan         Block explorer for Base. Wallet   │
+│                  and tx links open there.          │
+└────────────────────────────────────────────────────┘
+          </pre>
+          <div class="info-logo-wrap">
+            <img
+              class="info-logo"
+              src="/images/402dispatcherLogo.png"
+              width="360"
+              height="200"
+              alt="402 dispatcher logo — fuzzy tan wordmark on black"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="/console/console.js" defer></script>
   </body>
 </html>

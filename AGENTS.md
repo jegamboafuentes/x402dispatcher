@@ -36,6 +36,6 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 - **V5**: Host on GCP Cloud Run, expose `agent.json` + Streamable HTTP MCP, support `X402_ENV=production` for real Base mainnet USDC.
 - **V6**: Inbound paywall — charge calling agents via x402 before proxying; true customer revenue (`INBOUND_PAYWALL`, Merchant `payTo`).
 - **V7**: Cashflow ledger — persist money-in / money-out / markup events and balances (API + MCP tools first).
-- **V8 (current)**: Operator monitoring UI — Linux-console dashboard for treasury/merchant balances, PnL, recent settlements.
+- **V8 (current, 8.1)**: Operator monitoring UI — Linux-console dashboard for treasury/merchant balances, PnL, recent settlements (branding + SEO).
 - **V9**: Custom domain for the public MCP / Cloud Run service (GCP load balancer + DNS).
 - **V10**: Public distribution hardening — registries (Glama/Smithery), auth/rate limits, durable stats storage.

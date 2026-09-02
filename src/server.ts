@@ -45,7 +45,7 @@ import {
   recordOutcome,
 } from "./stats.js";
 
-export const APP_VERSION = "8.0.0";
+export const APP_VERSION = "8.1.0";
 
 const tierSchema = z
   .enum(["economy", "verified"])

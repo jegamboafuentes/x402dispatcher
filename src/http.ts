@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -32,6 +33,8 @@ const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? "0.0.0.0";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONSOLE_DIR = path.join(ROOT, "public", "console");
+const IMAGES_DIR = path.join(ROOT, "public", "images");
+const CONSOLE_HTML_PATH = path.join(CONSOLE_DIR, "index.html");
 
 function resolvePublicBaseUrl(req?: { protocol?: string; get?: (h: string) => string | undefined }): string {
   if (process.env.PUBLIC_BASE_URL) {
@@ -45,6 +48,11 @@ function resolvePublicBaseUrl(req?: { protocol?: string; get?: (h: string) => st
     }
   }
   return `http://localhost:${PORT}`;
+}
+
+function renderConsoleHtml(origin: string): string {
+  const html = fs.readFileSync(CONSOLE_HTML_PATH, "utf8");
+  return html.replaceAll("__ORIGIN__", origin.replace(/\/$/, ""));
 }
 
 async function handleMcp(req: import("express").Request, res: import("express").Response) {
@@ -157,11 +165,47 @@ async function main() {
     res.json(agent);
   });
 
-  app.get("/", (_req, res) => {
-    res.sendFile(path.join(CONSOLE_DIR, "index.html"));
+  app.get("/robots.txt", (req, res) => {
+    const origin = resolvePublicBaseUrl(req);
+    res
+      .type("text/plain")
+      .send(["User-agent: *", "Allow: /", "Disallow: /mcp", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n"));
+  });
+
+  app.get("/sitemap.xml", (req, res) => {
+    const origin = resolvePublicBaseUrl(req);
+    const now = new Date().toISOString();
+    res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${origin}/</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${origin}/health</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>${origin}/.well-known/agent.json</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>
+`);
+  });
+
+  app.get("/", (req, res) => {
+    const origin = resolvePublicBaseUrl(req);
+    res.type("html").send(renderConsoleHtml(origin));
   });
 
   app.use("/console", express.static(CONSOLE_DIR, { index: false, maxAge: "5m" }));
+  app.use("/images", express.static(IMAGES_DIR, { maxAge: "7d", fallthrough: false }));
 
   app.get("/api", async (req, res) => {
     res.json({
