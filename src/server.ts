@@ -45,7 +45,7 @@ import {
   recordOutcome,
 } from "./stats.js";
 
-export const APP_VERSION = "8.1.0";
+export const APP_VERSION = "9.0.0";
 
 const tierSchema = z
   .enum(["economy", "verified"])
@@ -672,8 +672,9 @@ export async function buildAgentJson(baseUrl: string) {
     name: "x402dispatcher",
     version: APP_VERSION,
     description:
-      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, track cashflow, and expose an operator console (V8).",
+      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, track cashflow, and expose an operator console (V9).",
     homepage: origin,
+    repository: "https://github.com/jegamboafuentes/x402dispatcher",
     mcp: {
       transport: "streamable-http",
       url: `${origin}/mcp`,
@@ -682,6 +683,7 @@ export async function buildAgentJson(baseUrl: string) {
       console: `${origin}/`,
       health: `${origin}/health`,
       agent_json: `${origin}/.well-known/agent.json`,
+      llms_txt: `${origin}/llms.txt`,
       mcp: `${origin}/mcp`,
       wallets: `${origin}/v1/wallets`,
       cashflow: `${origin}/v1/cashflow`,

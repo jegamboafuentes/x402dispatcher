@@ -1,8 +1,19 @@
 # x402dispatcher
 
-Local **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
+**Live:** [https://402dispatcher.com/](https://402dispatcher.com/)  
+**GitHub:** [https://github.com/jegamboafuentes/x402dispatcher](https://github.com/jegamboafuentes/x402dispatcher)
 
-This repo is currently at **V8** (operator console). V7 cashflow ledger and V6 inbound paywall are live; use `X402_ENV` for Sepolia vs Base mainnet.
+Cloud-hosted **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
+
+This repo is currently at **V9** (custom domain live). Operator console, cashflow ledger, and inbound paywall are in production on Base mainnet.
+
+| Surface | URL |
+|---|---|
+| Operator console | https://402dispatcher.com/ |
+| MCP (Streamable HTTP) | https://402dispatcher.com/mcp |
+| Health | https://402dispatcher.com/health |
+| Agent discovery | https://402dispatcher.com/.well-known/agent.json |
+| LLM brief | https://402dispatcher.com/llms.txt |
 
 ---
 
@@ -34,11 +45,23 @@ Funds move on-chain (wallet → seller / Merchant). The platform does not custod
 | **V5** | Done | Cloud Run + `agent.json` + HTTP MCP; `X402_ENV` for Sepolia vs Base mainnet |
 | **V6** | Done | **Inbound paywall** — calling agents pay Merchant before upstream proxy |
 | **V7** | Done | Cashflow ledger (money in / out / markup) via API + MCP |
-| **V8** | **Current (8.1)** | Operator monitoring UI (Linux console at `/`) + branding/SEO |
-| **V9** | Planned | Custom domain for public MCP / Cloud Run (GCP + DNS) |
+| **V8** | Done | Operator monitoring UI (Linux console at `/`) + branding/SEO |
+| **V9** | **Current** | Custom domain [402dispatcher.com](https://402dispatcher.com/) for public MCP / Cloud Run |
 | **V10** | Planned | Registries, auth/rate limits, durable stats (beyond `/tmp`) |
 
 You do **not** need a UI for agents — MCP + `agent.json` is the product surface. The UI at `/` is for **you** (operator monitoring).
+
+---
+
+## What V9 does
+
+Production traffic is served on the custom domain:
+
+- **Site / console:** https://402dispatcher.com/
+- **MCP:** https://402dispatcher.com/mcp
+- **Repo:** https://github.com/jegamboafuentes/x402dispatcher
+
+Cloud Run remains the backend (`x402dispatcher` in `us-central1`); DNS + HTTPS map to that service.
 
 ---
 
@@ -58,7 +81,29 @@ Auto-refreshes every 5s. Credits in the footer: run by [metaverseprofessional.te
 npm run test:v8
 ```
 
-Open locally: `http://127.0.0.1:8080/` (with `npm run start:http`).
+Open locally: `http://127.0.0.1:8080/` (with `npm run start:http`).  
+Production: https://402dispatcher.com/
+
+---
+
+## Connecting MCP clients (Cursor / ChatGPT / Gemini / Claude)
+
+Point a Streamable HTTP MCP client at:
+
+```text
+https://402dispatcher.com/mcp
+```
+
+Discovery documents for agents and crawlers:
+
+| File | Purpose |
+|---|---|
+| https://402dispatcher.com/.well-known/agent.json | Machine-readable agent / MCP capabilities |
+| https://402dispatcher.com/llms.txt | Short LLM-oriented summary (llms.txt convention) |
+| https://402dispatcher.com/robots.txt | Crawl rules + sitemap |
+| https://github.com/jegamboafuentes/x402dispatcher | Source + docs for tool registries |
+
+Paid tools require an x402-capable wallet client (inbound USDC to Merchant). Free tools (`quote_route`, `search_bazaar`, `get_pnl`, …) work without payment.
 
 ---
 
@@ -120,7 +165,7 @@ $env:X402_ENV='development'; $env:PUBLIC_BASE_URL='http://127.0.0.1:8080'; npm r
 ### Test V6 on production (real USDC)
 
 ```bash
-$env:X402_ENV='production'; $env:PUBLIC_BASE_URL='https://YOUR-SERVICE.run.app'; npm run test:v6
+$env:X402_ENV='production'; $env:PUBLIC_BASE_URL='https://402dispatcher.com'; npm run test:v6
 ```
 
 Fund the printed **Buyer** CDP account with Base mainnet USDC. Expect: free `quote_route` OK, then paid `route_and_call` with inbound settlement + upstream weather.
@@ -139,12 +184,12 @@ V5 exposes the same dispatcher over the public internet:
 | MCP (Streamable HTTP) | `ALL /mcp` |
 | Local stdio (Cursor) | `npm start` |
 
-Deploy target: **GCP Cloud Run** project `experiment-jegf-personal`.
+Deploy target: **GCP Cloud Run** project `experiment-jegf-personal`, public domain **https://402dispatcher.com/**.
 
 ```bash
 npm run start:http          # local HTTP on :8080
 npm run deploy:gcp          # build + deploy to Cloud Run
-$env:PUBLIC_BASE_URL='https://...run.app'; npm run test:v5
+$env:PUBLIC_BASE_URL='https://402dispatcher.com'; npm run test:v5
 ```
 
 ---
@@ -371,8 +416,8 @@ With `npm run start:http` running locally (or after deploy):
 
 ```bash
 npm run test:v5
-# or against Cloud Run:
-$env:PUBLIC_BASE_URL='https://YOUR-SERVICE-uc.a.run.app'; npm run test:v5
+# or against production:
+$env:PUBLIC_BASE_URL='https://402dispatcher.com'; npm run test:v5
 ```
 
 Expect: `V5 HTTP SMOKE TEST PASSED`

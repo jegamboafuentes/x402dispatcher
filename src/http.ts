@@ -169,7 +169,22 @@ async function main() {
     const origin = resolvePublicBaseUrl(req);
     res
       .type("text/plain")
-      .send(["User-agent: *", "Allow: /", "Disallow: /mcp", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n"));
+      .send(
+        [
+          "User-agent: *",
+          "Allow: /",
+          "Allow: /llms.txt",
+          "Allow: /.well-known/agent.json",
+          "Allow: /health",
+          "Disallow: /mcp",
+          `Sitemap: ${origin}/sitemap.xml`,
+          "",
+        ].join("\n"),
+      );
+  });
+
+  app.get("/llms.txt", (_req, res) => {
+    res.type("text/plain").sendFile(path.join(ROOT, "public", "llms.txt"));
   });
 
   app.get("/sitemap.xml", (req, res) => {
@@ -184,6 +199,12 @@ async function main() {
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>${origin}/llms.txt</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>${origin}/health</loc>
     <lastmod>${now}</lastmod>
     <changefreq>hourly</changefreq>
@@ -193,7 +214,7 @@ async function main() {
     <loc>${origin}/.well-known/agent.json</loc>
     <lastmod>${now}</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.6</priority>
+    <priority>0.7</priority>
   </url>
 </urlset>
 `);

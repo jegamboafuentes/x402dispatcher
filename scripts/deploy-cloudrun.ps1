@@ -107,17 +107,20 @@ gcloud run deploy $Service `
   --project $ProjectId
 
 $url = gcloud run services describe $Service --region $Region --project $ProjectId --format="value(status.url)"
-Write-Host "Setting PUBLIC_BASE_URL=$url ..."
+$publicBase = if ($env:PUBLIC_BASE_URL) { $env:PUBLIC_BASE_URL.TrimEnd("/") } else { "https://402dispatcher.com" }
+Write-Host "Setting PUBLIC_BASE_URL=$publicBase (Cloud Run URL=$url) ..."
 gcloud run services update $Service `
   --region $Region `
   --project $ProjectId `
-  --update-env-vars "PUBLIC_BASE_URL=$url" | Out-Null
+  --update-env-vars "PUBLIC_BASE_URL=$publicBase" | Out-Null
 Write-Host ""
-Write-Host "Deployed: $url"
-Write-Host "Console:  $url/"
-Write-Host "Health:   $url/health"
-Write-Host "Agent:    $url/.well-known/agent.json"
-Write-Host "MCP:      $url/mcp"
+Write-Host "Deployed: $publicBase"
+Write-Host "Cloud Run: $url"
+Write-Host "Console:  $publicBase/"
+Write-Host "Health:   $publicBase/health"
+Write-Host "Agent:    $publicBase/.well-known/agent.json"
+Write-Host "MCP:      $publicBase/mcp"
+Write-Host "GitHub:   https://github.com/jegamboafuentes/x402dispatcher"
 Write-Host ""
 Write-Host "Smoke test:"
-Write-Host "  `$env:PUBLIC_BASE_URL='$url'; npm run test:v8"
+Write-Host "  `$env:PUBLIC_BASE_URL='$publicBase'; npm run test:v8"

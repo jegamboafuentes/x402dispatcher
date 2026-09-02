@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "8.1.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher with operator console and cashflow ledger",
+  "version": "9.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher on 402dispatcher.com with MCP, cashflow, and operator console",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {

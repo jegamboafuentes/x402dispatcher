@@ -2,7 +2,7 @@
  * V8 operator console smoke test (no paid call).
  *
  *   $env:PUBLIC_BASE_URL='http://127.0.0.1:8080'; npm run test:v8
- *   $env:PUBLIC_BASE_URL='https://YOUR-SERVICE.run.app'; npm run test:v8
+ *   $env:PUBLIC_BASE_URL='https://402dispatcher.com'; npm run test:v8
  */
 const BASE = (process.env.PUBLIC_BASE_URL ?? "http://127.0.0.1:8080").replace(/\/$/, "");
 
@@ -53,6 +53,7 @@ async function main() {
     "/images/402dispatcherMascot.png",
     "/robots.txt",
     "/sitemap.xml",
+    "/llms.txt",
   ]) {
     const res = await fetch(`${BASE}${asset}`);
     if (!res.ok) {
@@ -85,8 +86,8 @@ async function main() {
     throw new Error(`/health failed: ${health.status}`);
   }
   const healthJson = (await health.json()) as { version?: string; ok?: boolean };
-  if (!String(healthJson.version ?? "").startsWith("8.1")) {
-    throw new Error(`Expected version 8.1.x, got ${healthJson.version}`);
+  if (!String(healthJson.version ?? "").startsWith("9.")) {
+    throw new Error(`Expected version 9.x, got ${healthJson.version}`);
   }
   console.log(`health version=${healthJson.version}`);
 

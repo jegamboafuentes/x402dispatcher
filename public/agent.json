@@ -1,11 +1,13 @@
 {
   "name": "x402dispatcher",
-  "version": "8.1.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher with operator console and cashflow ledger",
-  "homepage": "https://github.com/jegamboafuentes/x402dispatcher",
+  "version": "9.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher on 402dispatcher.com with MCP, cashflow, and operator console",
+  "homepage": "https://402dispatcher.com/",
+  "repository": "https://github.com/jegamboafuentes/x402dispatcher",
   "schema_version": "0.1.0",
   "mcp": {
     "transport": "streamable-http",
+    "url": "https://402dispatcher.com/mcp",
     "path": "/mcp"
   },
   "networks": ["eip155:8453"],

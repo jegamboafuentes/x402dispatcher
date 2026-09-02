@@ -1,0 +1,46 @@
+# x402dispatcher
+
+> x402 Bazaar aggregator MCP for AI agents: discover paywalled APIs, settle USDC micropayments on Base, and return upstream data.
+
+Live site: https://402dispatcher.com/
+MCP endpoint (Streamable HTTP): https://402dispatcher.com/mcp
+Agent card: https://402dispatcher.com/.well-known/agent.json
+Health: https://402dispatcher.com/health
+Source: https://github.com/jegamboafuentes/x402dispatcher
+Operator / company: https://metaverseprofessional.tech/
+Developer: https://enriquegamboa.info/
+
+## What it does
+
+- Discovers paid APIs from the Coinbase x402 Bazaar catalog
+- Exposes them as Model Context Protocol (MCP) tools
+- Charges calling agents inbound USDC (x402) to the Merchant wallet
+- Pays upstream sellers from a Treasury float wallet
+- Tracks cashflow (in / out / markup) for the solo operator
+
+## How to connect
+
+Use an MCP client that supports Streamable HTTP and (for paid tools) x402 payment signing:
+
+```json
+{
+  "mcpServers": {
+    "x402dispatcher": {
+      "url": "https://402dispatcher.com/mcp"
+    }
+  }
+}
+```
+
+## Free vs paid tools
+
+- Free: `quote_route`, `search_bazaar`, `list_discovered_apis`, `get_api_stats`, `list_verified_apis`, `get_paywall_status`, `get_cashflow`, `get_pnl`
+- Paid (inbound USDC): `route_and_call`, `call_x402_api`, `get_mbta_predictions`, dynamic Bazaar tools
+
+Network: Base mainnet (`eip155:8453`), asset USDC.
+
+## Optional docs
+
+- Full README: https://github.com/jegamboafuentes/x402dispatcher/blob/main/README.md
+- Product roadmap context: https://github.com/jegamboafuentes/x402dispatcher/blob/main/AGENTS.md
+- x402 protocol: https://x402.org/
