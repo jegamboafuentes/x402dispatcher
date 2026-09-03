@@ -86,8 +86,8 @@ async function main() {
     throw new Error(`/health failed: ${health.status}`);
   }
   const healthJson = (await health.json()) as { version?: string; ok?: boolean };
-  if (!String(healthJson.version ?? "").startsWith("9.")) {
-    throw new Error(`Expected version 9.x, got ${healthJson.version}`);
+  if (!String(healthJson.version ?? "").startsWith("10.")) {
+    throw new Error(`Expected version 10.x, got ${healthJson.version}`);
   }
   console.log(`health version=${healthJson.version}`);
 

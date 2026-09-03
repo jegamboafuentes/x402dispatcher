@@ -37,7 +37,8 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 - **V6**: Inbound paywall — charge calling agents via x402 before proxying; true customer revenue (`INBOUND_PAYWALL`, Merchant `payTo`).
 - **V7**: Cashflow ledger — persist money-in / money-out / markup events and balances (API + MCP tools first).
 - **V8**: Operator monitoring UI — Linux-console dashboard for treasury/merchant balances, PnL, recent settlements (branding + SEO).
-- **V9 (current)**: Custom domain **https://402dispatcher.com/** for the public MCP / Cloud Run service.
-- **V10**: Public distribution hardening — registries (Glama/Smithery), auth/rate limits, durable stats storage.
+- **V9**: Custom domain **https://402dispatcher.com/** for the public MCP / Cloud Run service.
+- **V10 (current)**: Durable SQLite cashflow/stats ledger, mirrored to GCS on Cloud Run.
+- **V11**: Public distribution hardening — registries (Glama/Smithery), auth/rate limits.
 
 **Live:** https://402dispatcher.com/ · **GitHub:** https://github.com/jegamboafuentes/x402dispatcher · **MCP:** https://402dispatcher.com/mcp

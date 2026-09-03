@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "9.0.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher on 402dispatcher.com with MCP, cashflow, and operator console",
+  "version": "10.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher with durable SQLite cashflow ledger",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -15,6 +15,7 @@
     "test:v6": "tsx scripts/v6-inbound-smoke-test.ts",
     "test:v7": "tsx scripts/v7-cashflow-smoke-test.ts",
     "test:v8": "tsx scripts/v8-console-smoke-test.ts",
+    "test:v10": "tsx scripts/v10-durable-smoke-test.ts",
     "test": "tsx scripts/v7-cashflow-smoke-test.ts",
     "deploy:gcp": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloudrun.ps1"
   },
@@ -37,6 +38,7 @@
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.55.0",
+    "@google-cloud/storage": "^8.0.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@solana/sysvars": "^5.5.1",
     "@x402/core": "^2.24.0",

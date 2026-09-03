@@ -112,7 +112,7 @@ async function collectMarkup(
     });
     const receipt = await getPublicClient().waitForTransactionReceipt({ hash: transactionHash });
     if (receipt.status !== "success") {
-      recordCashflow({
+      await recordCashflow({
         direction: "markup",
         amount_usd: markupUsd,
         amount_atomic: amount.toString(),
@@ -129,7 +129,7 @@ async function collectMarkup(
       });
       return { skipped: `markup transfer reverted: ${transactionHash}` };
     }
-    recordCashflow({
+    await recordCashflow({
       direction: "markup",
       amount_usd: markupUsd,
       amount_atomic: amount.toString(),
@@ -151,7 +151,7 @@ async function collectMarkup(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    recordCashflow({
+    await recordCashflow({
       direction: "markup",
       amount_usd: markupUsd,
       tool: meta?.tool,
@@ -193,7 +193,7 @@ export async function settleSimulatedMbtaPayment(): Promise<{
     throw new Error(`USDC payment reverted on ${getNetworkName()}. tx: ${transactionHash}`);
   }
 
-  recordCashflow({
+  await recordCashflow({
     direction: "out",
     amount_usd: amountUsd,
     amount_atomic: amount.toString(),
@@ -290,7 +290,7 @@ export async function callDiscoveredApi(api: DiscoveredApi, args: ProxyCallArgs 
   }
 
   const payer = await getPayerAddress();
-  recordCashflow({
+  await recordCashflow({
     direction: "out",
     amount_usd: pricing.upstreamPriceUsd,
     amount_atomic: api.upstreamAmountAtomic.toString(),

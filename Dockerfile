@@ -14,9 +14,10 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=8080
 ENV DATA_DIR=/tmp/x402dispatcher-data
+ENV NODE_OPTIONS=--experimental-sqlite
 
 RUN mkdir -p /tmp/x402dispatcher-data
 
 EXPOSE 8080
 
-CMD ["npx", "tsx", "src/http.ts"]
+CMD ["node", "--experimental-sqlite", "--import", "tsx", "src/http.ts"]

@@ -93,7 +93,7 @@ export async function createInboundPaidTool(options: {
         );
         const amountUsd =
           amountAtomicToUsd(paymentRequirements.amount) ?? getInboundPriceUsd();
-        recordCashflow({
+        await recordCashflow({
           direction: "in",
           amount_usd: amountUsd,
           amount_atomic: paymentRequirements.amount

@@ -16,7 +16,7 @@ Developer: https://enriquegamboa.info/
 - Exposes them as Model Context Protocol (MCP) tools
 - Charges calling agents inbound USDC (x402) to the Merchant wallet
 - Pays upstream sellers from a Treasury float wallet
-- Tracks cashflow (in / out / markup) for the solo operator
+- Tracks cashflow (in / out / markup) in a durable SQLite ledger
 
 ## How to connect
 

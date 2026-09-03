@@ -1,14 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import { atomicToUsd, getNetworkCaip2 } from "./config.js";
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : path.join(ROOT, "data");
-const CASHFLOW_PATH = path.join(DATA_DIR, "cashflow.json");
+import { getDb, getLedgerUpdatedAt, persistLedger, touchMeta } from "./db.js";
+import { getSqlitePath } from "./paths.js";
 
 export type CashflowDirection = "in" | "out" | "markup";
 
@@ -31,53 +24,71 @@ export type CashflowEntry = {
   note?: string;
 };
 
-type CashflowFile = {
-  version: 1;
-  updated_at: string;
-  entries: CashflowEntry[];
-};
-
 const MAX_ENTRIES = 2_000;
 
-function emptyFile(): CashflowFile {
-  return { version: 1, updated_at: new Date().toISOString(), entries: [] };
+type CashflowRow = {
+  id: string;
+  at: string;
+  direction: CashflowDirection;
+  amount_usd: number;
+  amount_atomic: string | null;
+  network: string;
+  tool: string | null;
+  task: string | null;
+  from_addr: string | null;
+  to_addr: string | null;
+  tx_hash: string | null;
+  explorer_url: string | null;
+  upstream_url: string | null;
+  correlation_id: string | null;
+  status: CashflowEntry["status"];
+  note: string | null;
+};
+
+function rowToEntry(row: CashflowRow): CashflowEntry {
+  return {
+    id: row.id,
+    at: row.at,
+    direction: row.direction,
+    amount_usd: row.amount_usd,
+    amount_atomic: row.amount_atomic ?? undefined,
+    network: row.network,
+    tool: row.tool ?? undefined,
+    task: row.task ?? undefined,
+    from: row.from_addr ?? undefined,
+    to: row.to_addr ?? undefined,
+    tx_hash: row.tx_hash ?? undefined,
+    explorer_url: row.explorer_url ?? undefined,
+    upstream_url: row.upstream_url ?? undefined,
+    correlation_id: row.correlation_id ?? undefined,
+    status: row.status,
+    note: row.note ?? undefined,
+  };
 }
 
-function readFile(): CashflowFile {
-  try {
-    if (!fs.existsSync(CASHFLOW_PATH)) {
-      return emptyFile();
-    }
-    const parsed = JSON.parse(fs.readFileSync(CASHFLOW_PATH, "utf8")) as CashflowFile;
-    if (!Array.isArray(parsed.entries)) {
-      return emptyFile();
-    }
-    return parsed;
-  } catch {
-    return emptyFile();
+function trimOldRows(): void {
+  const count = getDb().prepare("SELECT COUNT(*) AS n FROM cashflow").get() as { n: number };
+  const extra = count.n - MAX_ENTRIES;
+  if (extra > 0) {
+    getDb()
+      .prepare(
+        "DELETE FROM cashflow WHERE id IN (SELECT id FROM cashflow ORDER BY at ASC, id ASC LIMIT ?)",
+      )
+      .run(extra);
   }
-}
-
-function writeFile(file: CashflowFile): void {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  file.updated_at = new Date().toISOString();
-  if (file.entries.length > MAX_ENTRIES) {
-    file.entries = file.entries.slice(-MAX_ENTRIES);
-  }
-  fs.writeFileSync(CASHFLOW_PATH, JSON.stringify(file, null, 2), "utf8");
 }
 
 export function getCashflowPath(): string {
-  return CASHFLOW_PATH;
+  return getSqlitePath();
 }
 
-export function recordCashflow(
+export async function recordCashflow(
   input: Omit<CashflowEntry, "id" | "at" | "network"> & {
     network?: string;
     id?: string;
     at?: string;
   },
-): CashflowEntry {
+): Promise<CashflowEntry> {
   const entry: CashflowEntry = {
     id: input.id ?? randomUUID(),
     at: input.at ?? new Date().toISOString(),
@@ -97,9 +108,34 @@ export function recordCashflow(
     note: input.note,
   };
 
-  const file = readFile();
-  file.entries.push(entry);
-  writeFile(file);
+  getDb()
+    .prepare(
+      `INSERT INTO cashflow (
+        id, at, direction, amount_usd, amount_atomic, network, tool, task,
+        from_addr, to_addr, tx_hash, explorer_url, upstream_url, correlation_id, status, note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      entry.id,
+      entry.at,
+      entry.direction,
+      entry.amount_usd,
+      entry.amount_atomic ?? null,
+      entry.network,
+      entry.tool ?? null,
+      entry.task ?? null,
+      entry.from ?? null,
+      entry.to ?? null,
+      entry.tx_hash ?? null,
+      entry.explorer_url ?? null,
+      entry.upstream_url ?? null,
+      entry.correlation_id ?? null,
+      entry.status,
+      entry.note ?? null,
+    );
+  trimOldRows();
+  touchMeta();
+  await persistLedger();
   return entry;
 }
 
@@ -109,17 +145,25 @@ export function listCashflow(options?: {
   since?: string;
 }): CashflowEntry[] {
   const limit = Math.min(Math.max(options?.limit ?? 50, 1), 500);
-  let entries = readFile().entries;
+  const clauses: string[] = [];
+  const params: Array<string | number> = [];
   if (options?.direction) {
-    entries = entries.filter((e) => e.direction === options.direction);
+    clauses.push("direction = ?");
+    params.push(options.direction);
   }
   if (options?.since) {
     const sinceMs = Date.parse(options.since);
     if (Number.isFinite(sinceMs)) {
-      entries = entries.filter((e) => Date.parse(e.at) >= sinceMs);
+      clauses.push("at >= ?");
+      params.push(options.since);
     }
   }
-  return entries.slice(-limit).reverse();
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  params.push(limit);
+  const rows = getDb()
+    .prepare(`SELECT * FROM cashflow ${where} ORDER BY at DESC, id DESC LIMIT ?`)
+    .all(...params) as CashflowRow[];
+  return rows.map(rowToEntry);
 }
 
 export type PnLSummary = {
@@ -137,14 +181,21 @@ export type PnLSummary = {
 };
 
 export function getPnL(options?: { since?: string }): PnLSummary {
-  const file = readFile();
-  let entries = file.entries.filter((e) => e.status === "success");
+  const clauses = ["status = 'success'"];
+  const params: string[] = [];
   if (options?.since) {
     const sinceMs = Date.parse(options.since);
     if (Number.isFinite(sinceMs)) {
-      entries = entries.filter((e) => Date.parse(e.at) >= sinceMs);
+      clauses.push("at >= ?");
+      params.push(options.since);
     }
   }
+  const rows = getDb()
+    .prepare(
+      `SELECT direction, COUNT(*) AS n, COALESCE(SUM(amount_usd), 0) AS usd
+       FROM cashflow WHERE ${clauses.join(" AND ")} GROUP BY direction`,
+    )
+    .all(...params) as Array<{ direction: CashflowDirection; n: number; usd: number }>;
 
   let revenue = 0;
   let cogs = 0;
@@ -152,33 +203,31 @@ export function getPnL(options?: { since?: string }): PnLSummary {
   let inboundCount = 0;
   let outboundCount = 0;
   let markupCount = 0;
-
-  for (const e of entries) {
-    if (e.direction === "in") {
-      revenue += e.amount_usd;
-      inboundCount += 1;
-    } else if (e.direction === "out") {
-      cogs += e.amount_usd;
-      outboundCount += 1;
-    } else if (e.direction === "markup") {
-      markup += e.amount_usd;
-      markupCount += 1;
+  for (const row of rows) {
+    if (row.direction === "in") {
+      revenue = row.usd;
+      inboundCount = row.n;
+    } else if (row.direction === "out") {
+      cogs = row.usd;
+      outboundCount = row.n;
+    } else if (row.direction === "markup") {
+      markup = row.usd;
+      markupCount = row.n;
     }
   }
 
   return {
     network: getNetworkCaip2(),
-    entry_count: entries.length,
+    entry_count: inboundCount + outboundCount + markupCount,
     revenue_usd: Number(revenue.toFixed(6)),
     cogs_usd: Number(cogs.toFixed(6)),
     markup_usd: Number(markup.toFixed(6)),
-    /** When inbound paywall is on: revenue - cogs. Markup is internal Treasury→Merchant. */
     gross_profit_usd: Number((revenue - cogs).toFixed(6)),
     inbound_count: inboundCount,
     outbound_count: outboundCount,
     markup_count: markupCount,
-    cashflow_path: CASHFLOW_PATH,
-    updated_at: file.updated_at,
+    cashflow_path: getSqlitePath(),
+    updated_at: getLedgerUpdatedAt(),
   };
 }
 

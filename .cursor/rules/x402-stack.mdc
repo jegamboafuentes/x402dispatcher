@@ -13,5 +13,6 @@ alwaysApply: false
 - Cashflow ledger (V7): record `in` / `out` / `markup` via `src/cashflow.ts` on settle; expose `get_cashflow`, `get_pnl`, `/v1/cashflow`, `/v1/pnl`.
 - Operator console (V8): serve Linux-style UI at `/` from `public/console/`; expose treasury/merchant balances via `/v1/wallets` (`src/wallets.ts`).
 - Custom domain (V9): production public URL is `https://402dispatcher.com/` (MCP at `/mcp`). Keep `PUBLIC_BASE_URL` aligned with that domain.
+- Durable ledger (V10): SQLite at `DATA_DIR/ledger.sqlite`; on Cloud Run set `GCS_DATA_BUCKET` and persist after each cashflow/stats write (`src/db.ts`).
 - Prefer `eip155:8453` / `eip155:84532` CAIP-2 network ids when filtering Bazaar accepts.
 - Reference canonical examples from Coinbase CDP x402 docs rather than guessing implementations.

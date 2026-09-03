@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "9.0.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher on 402dispatcher.com with MCP, cashflow, and operator console",
+  "version": "10.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher with durable SQLite cashflow ledger",
   "homepage": "https://402dispatcher.com/",
   "repository": "https://github.com/jegamboafuentes/x402dispatcher",
   "schema_version": "0.1.0",

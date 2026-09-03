@@ -45,7 +45,7 @@ import {
   recordOutcome,
 } from "./stats.js";
 
-export const APP_VERSION = "9.0.0";
+export const APP_VERSION = "10.0.0";
 
 const tierSchema = z
   .enum(["economy", "verified"])
@@ -76,7 +76,7 @@ export async function warmDiscovery(): Promise<number> {
 
 export async function logStartupBanner(mode: "stdio" | "http"): Promise<void> {
   console.error(
-      `x402dispatcher V8 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()}`,
+      `x402dispatcher V10 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()}`,
   );
   console.error(`Stats store: ${getStatsPath()}`);
   console.error(`Cashflow ledger: ${getCashflowPath()}`);
@@ -148,7 +148,7 @@ async function callWithStats(
       task: args.task ?? task,
       correlation_id,
     });
-    const stats = recordOutcome({
+    const stats = await recordOutcome({
       url: api.url,
       ok: true,
       latencyMs: Date.now() - started,
@@ -156,7 +156,7 @@ async function callWithStats(
     });
     return { ...result, stats, correlation_id };
   } catch (error) {
-    recordOutcome({
+    await recordOutcome({
       url: api.url,
       ok: false,
       latencyMs: Date.now() - started,
@@ -672,7 +672,7 @@ export async function buildAgentJson(baseUrl: string) {
     name: "x402dispatcher",
     version: APP_VERSION,
     description:
-      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, track cashflow, and expose an operator console (V9).",
+      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, track cashflow, and expose an operator console (V10).",
     homepage: origin,
     repository: "https://github.com/jegamboafuentes/x402dispatcher",
     mcp: {

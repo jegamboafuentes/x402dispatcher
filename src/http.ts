@@ -26,6 +26,7 @@ import { getInboundPaywallPublicStatus } from "./inbound.js";
 import { getCashflowPath, getPnL, listCashflow } from "./cashflow.js";
 import { getStatsPath } from "./stats.js";
 import { getWalletsSnapshot } from "./wallets.js";
+import { getLedgerStatus, restoreLedger } from "./db.js";
 
 dotenv.config({ quiet: true });
 
@@ -82,6 +83,7 @@ async function handleMcp(req: import("express").Request, res: import("express").
 }
 
 async function main() {
+  await restoreLedger();
   await logStartupBanner("http");
   const count = await warmDiscovery();
   console.error(`Discovered and cached ${count} ${getNetworkLabel()} x402 APIs`);
@@ -121,6 +123,7 @@ async function main() {
       cashflow_path: getCashflowPath(),
       pnl: getPnL(),
       stats_path: getStatsPath(),
+      ledger: getLedgerStatus(),
       console: "/",
     });
   });
@@ -232,7 +235,7 @@ async function main() {
     res.json({
       service: "x402dispatcher",
       version: APP_VERSION,
-      message: "x402 Bazaar dispatcher MCP server (V8 operator console)",
+      message: "x402 Bazaar dispatcher MCP server (V10 durable SQLite ledger)",
       links: {
         console: "/",
         health: "/health",
@@ -255,7 +258,7 @@ async function main() {
   });
 
   app.listen(PORT, HOST, () => {
-    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V8)`);
+    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V10)`);
     console.error(`Console: http://${HOST}:${PORT}/`);
     console.error(`Health:  http://${HOST}:${PORT}/health`);
     console.error(`Agent:   http://${HOST}:${PORT}/.well-known/agent.json`);

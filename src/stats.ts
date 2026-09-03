@@ -1,16 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   getVerifiedMinSamples,
   getVerifiedMinSuccessRate,
 } from "./config.js";
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : path.join(ROOT, "data");
-const STATS_PATH = path.join(DATA_DIR, "api-stats.json");
+import { getDb, persistLedger, touchMeta } from "./db.js";
+import { getSqlitePath } from "./paths.js";
 
 export type ApiOutcome = {
   ok: boolean;
@@ -33,45 +26,7 @@ export type ApiStats = {
   recent: ApiOutcome[];
 };
 
-type StatsFile = {
-  version: 1;
-  updated_at: string;
-  apis: Record<
-    string,
-    {
-      url: string;
-      outcomes: ApiOutcome[];
-    }
-  >;
-};
-
 const MAX_RECENT = 50;
-
-function emptyFile(): StatsFile {
-  return { version: 1, updated_at: new Date().toISOString(), apis: {} };
-}
-
-function readFile(): StatsFile {
-  try {
-    if (!fs.existsSync(STATS_PATH)) {
-      return emptyFile();
-    }
-    const raw = fs.readFileSync(STATS_PATH, "utf8");
-    const parsed = JSON.parse(raw) as StatsFile;
-    if (!parsed.apis) {
-      return emptyFile();
-    }
-    return parsed;
-  } catch {
-    return emptyFile();
-  }
-}
-
-function writeFile(file: StatsFile): void {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  file.updated_at = new Date().toISOString();
-  fs.writeFileSync(STATS_PATH, JSON.stringify(file, null, 2), "utf8");
-}
 
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
@@ -85,9 +40,7 @@ export function summarizeUrl(url: string, outcomes: ApiOutcome[]): ApiStats {
   const failures = calls - successes;
   const latencies = outcomes.map((o) => o.latency_ms).sort((a, b) => a - b);
   const avg =
-    latencies.length === 0
-      ? 0
-      : latencies.reduce((sum, n) => sum + n, 0) / latencies.length;
+    latencies.length === 0 ? 0 : latencies.reduce((sum, n) => sum + n, 0) / latencies.length;
   const last = outcomes[outcomes.length - 1];
 
   return {
@@ -104,66 +57,85 @@ export function summarizeUrl(url: string, outcomes: ApiOutcome[]): ApiStats {
   };
 }
 
-export function recordOutcome(input: {
+function outcomesForUrl(url: string): ApiOutcome[] {
+  const rows = getDb()
+    .prepare(
+      "SELECT ok, latency_ms, at, task, error FROM api_outcomes WHERE url = ? ORDER BY id ASC",
+    )
+    .all(url) as Array<{
+    ok: number;
+    latency_ms: number;
+    at: string;
+    task: string | null;
+    error: string | null;
+  }>;
+  return rows.map((row) => ({
+    ok: Boolean(row.ok),
+    latency_ms: row.latency_ms,
+    at: row.at,
+    task: row.task ?? undefined,
+    error: row.error ?? undefined,
+  }));
+}
+
+export async function recordOutcome(input: {
   url: string;
   ok: boolean;
   latencyMs: number;
   task?: string;
   error?: string;
-}): ApiStats {
-  const file = readFile();
-  const entry = file.apis[input.url] ?? { url: input.url, outcomes: [] };
-  entry.outcomes.push({
-    ok: input.ok,
-    latency_ms: Math.max(0, Math.round(input.latencyMs)),
-    at: new Date().toISOString(),
-    task: input.task,
-    error: input.error,
-  });
-  if (entry.outcomes.length > MAX_RECENT) {
-    entry.outcomes = entry.outcomes.slice(-MAX_RECENT);
-  }
-  file.apis[input.url] = entry;
-  writeFile(file);
-  return summarizeUrl(input.url, entry.outcomes);
+}): Promise<ApiStats> {
+  const database = getDb();
+  database
+    .prepare("INSERT INTO api_outcomes (url, ok, latency_ms, at, task, error) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(
+      input.url,
+      input.ok ? 1 : 0,
+      Math.max(0, Math.round(input.latencyMs)),
+      new Date().toISOString(),
+      input.task ?? null,
+      input.error ?? null,
+    );
+  database
+    .prepare(
+      `DELETE FROM api_outcomes WHERE url = ? AND id NOT IN (
+         SELECT id FROM api_outcomes WHERE url = ? ORDER BY id DESC LIMIT ?
+       )`,
+    )
+    .run(input.url, input.url, MAX_RECENT);
+  touchMeta();
+  await persistLedger();
+  return summarizeUrl(input.url, outcomesForUrl(input.url));
 }
 
 export function getStatsForUrl(url: string): ApiStats | undefined {
-  const file = readFile();
-  const entry = file.apis[url];
-  if (!entry) return undefined;
-  return summarizeUrl(url, entry.outcomes);
+  const outcomes = outcomesForUrl(url);
+  if (outcomes.length === 0) return undefined;
+  return summarizeUrl(url, outcomes);
 }
 
 export function listAllStats(): ApiStats[] {
-  const file = readFile();
-  return Object.values(file.apis)
-    .map((entry) => summarizeUrl(entry.url, entry.outcomes))
+  const urls = getDb().prepare("SELECT DISTINCT url FROM api_outcomes").all() as Array<{ url: string }>;
+  return urls
+    .map((row) => summarizeUrl(row.url, outcomesForUrl(row.url)))
     .sort((a, b) => b.calls - a.calls || b.success_rate - a.success_rate);
 }
 
 export function isVerified(stats: ApiStats | undefined): boolean {
   if (!stats) return false;
-  return (
-    stats.calls >= getVerifiedMinSamples() &&
-    stats.success_rate >= getVerifiedMinSuccessRate()
-  );
+  return stats.calls >= getVerifiedMinSamples() && stats.success_rate >= getVerifiedMinSuccessRate();
 }
 
 export function listVerifiedStats(): ApiStats[] {
   return listAllStats().filter((stats) => isVerified(stats));
 }
 
-/**
- * Higher is better. Balances reliability, speed, and price.
- * Unscored / cold APIs get a low but usable economy score from price alone.
- */
 export function routeScore(input: {
   totalPriceUsd: number;
   stats?: ApiStats;
   bazaarVolume?: number;
 }): number {
-  const pricePenalty = input.totalPriceUsd * 1000; // $0.001 → 1
+  const pricePenalty = input.totalPriceUsd * 1000;
   const stats = input.stats;
 
   if (!stats || stats.calls === 0) {
@@ -177,5 +149,5 @@ export function routeScore(input: {
 }
 
 export function getStatsPath(): string {
-  return STATS_PATH;
+  return getSqlitePath();
 }

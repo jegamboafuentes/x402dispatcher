@@ -31,6 +31,7 @@ gcloud services enable `
   cloudbuild.googleapis.com `
   artifactregistry.googleapis.com `
   secretmanager.googleapis.com `
+  storage.googleapis.com `
   --project $ProjectId
 
 $registry = "$Region-docker.pkg.dev/$ProjectId/$Repo"
@@ -92,6 +93,19 @@ foreach ($name in $secretNames) {
     --project=$ProjectId | Out-Null
 }
 
+$bucket = "x402dispatcher-data-$ProjectId"
+Write-Host "Ensuring GCS ledger bucket gs://$bucket ..."
+if (-not (Test-GcloudResource @("storage", "buckets", "describe", "gs://$bucket", "--project=$ProjectId"))) {
+  gcloud storage buckets create "gs://$bucket" `
+    --project=$ProjectId `
+    --location=$Region `
+    --uniform-bucket-level-access
+}
+gcloud storage buckets add-iam-policy-binding "gs://$bucket" `
+  --member="serviceAccount:$runtimeSa" `
+  --role="roles/storage.objectAdmin" `
+  --project=$ProjectId | Out-Null
+
 Write-Host "Deploying Cloud Run service..."
 gcloud run deploy $Service `
   --image $image `
@@ -104,7 +118,7 @@ gcloud run deploy $Service `
   --timeout 300 `
   --max-instances 3 `
   --set-secrets "CDP_API_KEY_ID=CDP_API_KEY_ID:latest,CDP_API_KEY_SECRET=CDP_API_KEY_SECRET:latest,CDP_WALLET_SECRET=CDP_WALLET_SECRET:latest,MAX_PRICE_USD=MAX_PRICE_USD:latest" `
-  --set-env-vars "HOST=0.0.0.0,DATA_DIR=/tmp/x402dispatcher-data,MARKUP_BPS=1000,DISCOVERY_LIMIT=40,VERIFIED_MIN_SAMPLES=2,VERIFIED_MIN_SUCCESS_RATE=0.8,X402_ENV=$X402Env,INBOUND_PAYWALL=true,INBOUND_PRICE_USD=0.01" `
+  --set-env-vars "HOST=0.0.0.0,DATA_DIR=/tmp/x402dispatcher-data,MARKUP_BPS=1000,DISCOVERY_LIMIT=40,VERIFIED_MIN_SAMPLES=2,VERIFIED_MIN_SUCCESS_RATE=0.8,X402_ENV=$X402Env,INBOUND_PAYWALL=true,INBOUND_PRICE_USD=0.01,GCS_DATA_BUCKET=$bucket,GCS_DATA_OBJECT=ledger.sqlite,NODE_OPTIONS=--experimental-sqlite" `
   --project $ProjectId
 
 $url = gcloud run services describe $Service --region $Region --project $ProjectId --format="value(status.url)"

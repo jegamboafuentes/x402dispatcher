@@ -5,7 +5,7 @@
 
 Cloud-hosted **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
 
-This repo is currently at **V9** (custom domain live). Operator console, cashflow ledger, and inbound paywall are in production on Base mainnet.
+This repo is currently at **V10** (durable SQLite ledger). Custom domain, operator console, and inbound paywall are live on Base mainnet.
 
 | Surface | URL |
 |---|---|
@@ -46,10 +46,29 @@ Funds move on-chain (wallet → seller / Merchant). The platform does not custod
 | **V6** | Done | **Inbound paywall** — calling agents pay Merchant before upstream proxy |
 | **V7** | Done | Cashflow ledger (money in / out / markup) via API + MCP |
 | **V8** | Done | Operator monitoring UI (Linux console at `/`) + branding/SEO |
-| **V9** | **Current** | Custom domain [402dispatcher.com](https://402dispatcher.com/) for public MCP / Cloud Run |
-| **V10** | Planned | Registries, auth/rate limits, durable stats (beyond `/tmp`) |
+| **V9** | Done | Custom domain [402dispatcher.com](https://402dispatcher.com/) for public MCP / Cloud Run |
+| **V10** | **Current** | Durable SQLite ledger (GCS-backed on Cloud Run) so PnL/settlements survive restarts |
+| **V11** | Planned | Public distribution — registries (Glama/Smithery), auth/rate limits |
 
 You do **not** need a UI for agents — MCP + `agent.json` is the product surface. The UI at `/` is for **you** (operator monitoring).
+
+---
+
+## What V10 does
+
+Cloud Run `/tmp` is wiped on new revisions, which is why the console PnL and settlements vanished while **wallet balances stayed** (those are on-chain).
+
+V10 stores cashflow + API stats in **SQLite** (`DATA_DIR/ledger.sqlite`). On Cloud Run the file is restored/saved to a GCS bucket (`GCS_DATA_BUCKET`) after each write.
+
+| Where | Storage |
+|---|---|
+| Local | `data/ledger.sqlite` |
+| Cloud Run | `/tmp/.../ledger.sqlite` + `gs://x402dispatcher-data-…/ledger.sqlite` |
+| Wallets | Base chain (not in this DB) |
+
+```bash
+npm run test:v10
+```
 
 ---
 
@@ -119,7 +138,7 @@ V7 persists a **cashflow ledger** so you can audit solo-business money movement:
 
 Tools (free / operator): `get_cashflow`, `get_pnl`. HTTP: `GET /v1/cashflow`, `GET /v1/pnl`.
 
-Stored under `DATA_DIR/cashflow.json` (local `data/`, Cloud Run `/tmp/...` unless you mount durable storage).
+Stored under SQLite `DATA_DIR/ledger.sqlite` (V10). Cloud Run also mirrors the file to GCS so it survives restarts.
 
 ```bash
 npm run test:v7
@@ -329,6 +348,8 @@ cp .env.example .env
 | `INBOUND_PAYWALL` | Optional | V6: `true` (default) to charge callers; `false` for treasury-only operator mode |
 | `INBOUND_PRICE_USD` | Optional | V6 flat inbound fee (default = `MAX_PRICE_USD`) |
 | `X402_PAY_TO` | Optional | Override Merchant receive address for inbound payments |
+| `GCS_DATA_BUCKET` | Cloud Run | V10: GCS bucket that stores `ledger.sqlite` across restarts |
+| `GCS_DATA_OBJECT` | Optional | Object name (default `ledger.sqlite`) |
 | `CDP_PRIVATE_KEY` | Optional | Only if you import a specific EOA into CDP (not used by default V2+ payer path) |
 
 Never commit `.env`. Only `.env.example` is tracked.

@@ -200,7 +200,7 @@ export async function routeAndCall(options: {
     try {
       const result = await callDiscoveredApi(candidate.api, callArgs);
       const latencyMs = Date.now() - started;
-      const stats = recordOutcome({
+      const stats = await recordOutcome({
         url: candidate.url,
         ok: true,
         latencyMs,
@@ -240,7 +240,7 @@ export async function routeAndCall(options: {
     } catch (error) {
       const latencyMs = Date.now() - started;
       const message = error instanceof Error ? error.message : String(error);
-      const stats = recordOutcome({
+      const stats = await recordOutcome({
         url: candidate.url,
         ok: false,
         latencyMs,

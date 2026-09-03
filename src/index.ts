@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { getNetworkLabel } from "./config.js";
+import { restoreLedger } from "./db.js";
 import {
   createMcpServer,
   logStartupBanner,
@@ -10,6 +11,7 @@ import {
 dotenv.config({ quiet: true });
 
 async function main() {
+  await restoreLedger();
   await logStartupBanner("stdio");
   const count = await warmDiscovery();
   console.error(`Discovered and registered ${count} ${getNetworkLabel()} x402 APIs`);
@@ -17,7 +19,7 @@ async function main() {
   const server = await createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("x402dispatcher MCP server running on stdio (V7)");
+  console.error("x402dispatcher MCP server running on stdio (V10)");
 }
 
 main().catch((error) => {
