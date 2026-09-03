@@ -1,5 +1,7 @@
 # x402dispatcher
 
+<img src="https://github.com/jegamboafuentes/x402dispatcher/blob/main/public/images/402dispatcherLogo.png?raw=true" alt="402 dispatcher logo" width="50%">
+
 **Live:** [https://402dispatcher.com/](https://402dispatcher.com/)  
 **GitHub:** [https://github.com/jegamboafuentes/x402dispatcher](https://github.com/jegamboafuentes/x402dispatcher)
 
@@ -32,6 +34,7 @@ AI agents are good at reasoning and tool use, but bad at paying for APIs. The [x
 
 Funds move on-chain (wallet → seller / Merchant). The platform does not custody buyer card data. Until V6, the **operator Treasury** funds outbound calls; after V6, **calling agents** pay inbound first.
 
+<img src="https://github.com/jegamboafuentes/x402dispatcher/blob/main/public/images/402dispatcherright.png?raw=true" alt="402 dispatcher logo" width="50%">
 ---
 
 ## Roadmap
