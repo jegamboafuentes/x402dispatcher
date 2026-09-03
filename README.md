@@ -1,4 +1,3 @@
-# x402dispatcher
 
 <img src="https://github.com/jegamboafuentes/x402dispatcher/blob/main/public/images/402dispatcherLogo.png?raw=true" alt="402 dispatcher logo" width="50%">
 
@@ -266,6 +265,8 @@ V1 `get_mbta_predictions` still proves a fixed $0.01 USDC Base Sepolia transfer,
 
 ## Architecture
 
+<img src="https://github.com/jegamboafuentes/x402dispatcher/blob/main/public/images/402distpatcher-architecture.png?raw=true" alt="402 dispatcher logo">
+
 ```
 Agent / Cursor
     │  MCP (stdio)
@@ -527,3 +528,5 @@ x402dispatcher/
 ## License
 
 ISC
+
+<img src="https://github.com/jegamboafuentes/x402dispatcher/blob/main/public/images/402dispatcherMascot.png?raw=true" alt="402 dispatcher logo" width="50%">
