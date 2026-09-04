@@ -168,6 +168,11 @@ async function main() {
     res.json(agent);
   });
 
+  app.get("/.well-known/glama.json", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.type("application/json").sendFile(path.join(ROOT, "public", ".well-known", "glama.json"));
+  });
+
   app.get("/robots.txt", (req, res) => {
     const origin = resolvePublicBaseUrl(req);
     res
@@ -178,6 +183,7 @@ async function main() {
           "Allow: /",
           "Allow: /llms.txt",
           "Allow: /.well-known/agent.json",
+          "Allow: /.well-known/glama.json",
           "Allow: /health",
           "Disallow: /mcp",
           `Sitemap: ${origin}/sitemap.xml`,
@@ -219,6 +225,12 @@ async function main() {
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>${origin}/.well-known/glama.json</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
 </urlset>
 `);
   });
@@ -240,6 +252,7 @@ async function main() {
         console: "/",
         health: "/health",
         agent: "/.well-known/agent.json",
+        glama: "/.well-known/glama.json",
         mcp: "/mcp",
         cashflow: "/v1/cashflow",
         pnl: "/v1/pnl",
