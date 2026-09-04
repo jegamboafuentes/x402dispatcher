@@ -170,7 +170,10 @@ async function main() {
 
   app.get("/.well-known/glama.json", (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=60");
-    res.type("application/json").sendFile(path.join(ROOT, "public", ".well-known", "glama.json"));
+    res.type("application/json").json({
+      $schema: "https://glama.ai/mcp/schemas/connector.json",
+      claim: "glama_claim_-bXvgN6D7GAbuWz8hHbPxiY1vyOW6MZ7",
+    });
   });
 
   app.get("/robots.txt", (req, res) => {
