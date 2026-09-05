@@ -57,6 +57,7 @@ Funds move on-chain (wallet → seller / Merchant). The platform does not custod
 | **V9** | Done | Custom domain [402dispatcher.com](https://402dispatcher.com/) for public MCP / Cloud Run |
 | **V10** | Done | Durable SQLite ledger (GCS-backed on Cloud Run) so PnL/settlements survive restarts |
 | **V11** | **Current** | Public distribution — Glama + Smithery registry listings, slim MCP tool surface |
+| **V12** | Planned | Broader discovery: Official MCP Registry, PulseMCP, BusinessMCP, GitHub Awesome lists |
 
 You do **not** need a UI for agents — MCP + `agent.json` is the product surface. The UI at `/` is for **you** (operator monitoring).
 
@@ -72,6 +73,15 @@ Public MCP distribution:
 | Smithery | https://smithery.ai/servers/metaverse-professional/dispatcher402 |
 
 The public MCP surface stays small (discovery + route/call + operator tools). Per-API Bazaar tools stay off unless `EXPOSE_DYNAMIC_BAZAAR_TOOLS=true`.
+
+### Planned V12
+
+| Target | Notes |
+|---|---|
+| Official MCP Registry | https://modelcontextprotocol.io/registry |
+| PulseMCP | Directory listing |
+| BusinessMCP | Directory listing |
+| GitHub Awesome lists | Community MCP / agentic lists |
 
 ---
 

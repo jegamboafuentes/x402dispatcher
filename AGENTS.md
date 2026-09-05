@@ -40,5 +40,10 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 - **V9**: Custom domain **https://402dispatcher.com/** for the public MCP / Cloud Run service.
 - **V10**: Durable SQLite cashflow/stats ledger, mirrored to GCS on Cloud Run.
 - **V11 (current)**: Public distribution — Glama + Smithery registry listings, slim MCP tool surface for agents.
+- **V12**: Broader registry presence —
+  1. The Official MCP Registry ([modelcontextprotocol.io/registry](https://modelcontextprotocol.io/registry))
+  2. PulseMCP
+  3. BusinessMCP
+  4. GitHub "Awesome" lists
 
 **Live:** https://402dispatcher.com/ · **GitHub:** https://github.com/jegamboafuentes/x402dispatcher · **MCP:** https://402dispatcher.com/mcp · **Glama:** https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher · **Smithery:** https://smithery.ai/servers/metaverse-professional/dispatcher402
