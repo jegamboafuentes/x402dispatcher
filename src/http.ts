@@ -189,6 +189,12 @@ async function main() {
           "Allow: /.well-known/glama.json",
           "Allow: /health",
           "Disallow: /mcp",
+          "",
+          "User-agent: SmitheryBot/1.0",
+          "Allow: /",
+          "Allow: /llms.txt",
+          "Allow: /.well-known/agent.json",
+          "",
           `Sitemap: ${origin}/sitemap.xml`,
           "",
         ].join("\n"),
@@ -250,7 +256,7 @@ async function main() {
     res.json({
       service: "x402dispatcher",
       version: APP_VERSION,
-      message: "x402 Bazaar dispatcher MCP server (V10 durable SQLite ledger)",
+      message: "x402 Bazaar dispatcher MCP server (V11 public registries + slim tool surface)",
       links: {
         console: "/",
         health: "/health",
@@ -274,7 +280,7 @@ async function main() {
   });
 
   app.listen(PORT, HOST, () => {
-    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V10)`);
+    console.error(`x402dispatcher HTTP MCP listening on http://${HOST}:${PORT} (V11)`);
     console.error(`Console: http://${HOST}:${PORT}/`);
     console.error(`Health:  http://${HOST}:${PORT}/health`);
     console.error(`Agent:   http://${HOST}:${PORT}/.well-known/agent.json`);

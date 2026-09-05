@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "10.0.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher with durable SQLite cashflow ledger",
+  "version": "11.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher with Glama/Smithery distribution",
   "homepage": "https://402dispatcher.com/",
   "repository": "https://github.com/jegamboafuentes/x402dispatcher",
   "schema_version": "0.1.0",
@@ -18,7 +18,6 @@
     "call_x402_api",
     "get_api_stats",
     "list_verified_apis",
-    "get_mbta_predictions",
     "get_paywall_status",
     "get_cashflow",
     "get_pnl"
@@ -35,8 +34,7 @@
   ],
   "paid_tools": [
     "route_and_call",
-    "call_x402_api",
-    "get_mbta_predictions"
+    "call_x402_api"
   ],
   "tiers": ["economy", "verified"]
 }

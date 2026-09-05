@@ -38,7 +38,7 @@ One of the most lucrative models for a solo developer is building a Bazaar Aggre
 - **V7**: Cashflow ledger — persist money-in / money-out / markup events and balances (API + MCP tools first).
 - **V8**: Operator monitoring UI — Linux-console dashboard for treasury/merchant balances, PnL, recent settlements (branding + SEO).
 - **V9**: Custom domain **https://402dispatcher.com/** for the public MCP / Cloud Run service.
-- **V10 (current)**: Durable SQLite cashflow/stats ledger, mirrored to GCS on Cloud Run.
-- **V11**: Public distribution hardening — registries (Glama/Smithery), auth/rate limits.
+- **V10**: Durable SQLite cashflow/stats ledger, mirrored to GCS on Cloud Run.
+- **V11 (current)**: Public distribution — Glama + Smithery registry listings, slim MCP tool surface for agents.
 
-**Live:** https://402dispatcher.com/ · **GitHub:** https://github.com/jegamboafuentes/x402dispatcher · **MCP:** https://402dispatcher.com/mcp
+**Live:** https://402dispatcher.com/ · **GitHub:** https://github.com/jegamboafuentes/x402dispatcher · **MCP:** https://402dispatcher.com/mcp · **Glama:** https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher · **Smithery:** https://smithery.ai/servers/metaverse-professional/dispatcher402

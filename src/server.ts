@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  exposeDynamicBazaarTools,
   formatUsdPrice,
   getDiscoveryLimit,
   getInboundPriceUsd,
@@ -34,7 +35,6 @@ import {
   callDiscoveredApi,
   estimateTotalUsd,
   getPayerAddress,
-  settleSimulatedMbtaPayment,
 } from "./payment.js";
 import { buildRouteCandidates, routeAndCall, type RouteTier } from "./routing.js";
 import {
@@ -45,7 +45,7 @@ import {
   recordOutcome,
 } from "./stats.js";
 
-export const APP_VERSION = "10.0.0";
+export const APP_VERSION = "11.0.0";
 
 const tierSchema = z
   .enum(["economy", "verified"])
@@ -76,7 +76,7 @@ export async function warmDiscovery(): Promise<number> {
 
 export async function logStartupBanner(mode: "stdio" | "http"): Promise<void> {
   console.error(
-      `x402dispatcher V10 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()}`,
+      `x402dispatcher V11 starting (${mode}) X402_ENV=${getX402Environment()} network=${getNetworkLabel()} (${getNetworkCaip2()}) INBOUND_PAYWALL=${isInboundPaywallEnabled()} INBOUND_PRICE_USD=${getInboundPriceUsd()} MAX_PRICE_USD=${getMaxPriceUsd()} MARKUP_BPS=${getMarkupBps()} DISCOVERY_LIMIT=${getDiscoveryLimit()} EXPOSE_DYNAMIC_BAZAAR_TOOLS=${exposeDynamicBazaarTools()}`,
   );
   console.error(`Stats store: ${getStatsPath()}`);
   console.error(`Cashflow ledger: ${getCashflowPath()}`);
@@ -114,17 +114,6 @@ function toolOk(payload: unknown) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
   };
-}
-
-async function fetchMbtaPredictions(stopId: string): Promise<unknown> {
-  const url = `https://api-v3.mbta.com/predictions?filter[stop]=${encodeURIComponent(stopId)}`;
-  const response = await fetch(url, {
-    headers: { Accept: "application/vnd.api+json" },
-  });
-  if (!response.ok) {
-    throw new Error(`MBTA API error ${response.status}: ${await response.text()}`);
-  }
-  return response.json();
 }
 
 async function callWithStats(
@@ -185,11 +174,7 @@ export async function createMcpServer(): Promise<McpServer> {
     priceUsd: inboundPrice,
     description: `x402dispatcher paid tool — ${formatUsdPrice(inboundPrice)} USDC inbound to Merchant`,
   });
-  const paidMbta = await createInboundPaidTool({
-    priceUsd: Math.min(0.01, getMaxPriceUsd()),
-    toolNameHint: "get_mbta_predictions",
-    description: "MBTA demo — inbound payment then treasury settle",
-  });
+  const registerDynamicTools = exposeDynamicBazaarTools();
 
   function rememberApis(apis: DiscoveredApi[]) {
     for (const api of apis) {
@@ -205,6 +190,10 @@ export async function createMcpServer(): Promise<McpServer> {
   for (const api of warmedApis) {
     catalog.set(api.toolName, api);
     catalog.set(api.url, api);
+
+    if (!registerDynamicTools) {
+      continue;
+    }
 
     const totalUsd = estimateTotalUsd(api.upstreamPriceUsd);
     const toolPrice = Math.min(totalUsd, getMaxPriceUsd());
@@ -258,7 +247,7 @@ export async function createMcpServer(): Promise<McpServer> {
     {
       title: "Quote Route",
       description:
-        "FREE. Search the x402 Bazaar for APIs matching a task and rank them. tier=economy sorts by price; tier=verified keeps only reliable APIs and ranks by success/latency/price score. Does not pay.",
+        "FREE. Rank Bazaar APIs for a natural-language task without paying. Prefer over search_bazaar when you need ranked candidates (economy=cheapest; verified=reliability score). Prefer over list_discovered_apis when matching a task, not dumping the cache. Use route_and_call next to execute; do not use this to pay.",
       inputSchema: {
         task: z
           .string()
@@ -320,8 +309,10 @@ export async function createMcpServer(): Promise<McpServer> {
         paywallOn
           ? `PAID inbound ${formatUsdPrice(inboundPrice)} USDC to Merchant, then`
           : "",
-        `route a task to a ${networkLabel} x402 API, pay upstream from Treasury, and return data.`,
-        "economy = cheapest; verified = reliability-scored. Failover on errors.",
+        `auto-pick and call the best ${networkLabel} x402 API for a natural-language task (Treasury pays upstream; failover on errors).`,
+        "Prefer over call_x402_api when you have a task but no specific tool_name/URL.",
+        "Prefer over quote_route when you want data now, not a dry-run ranking.",
+        "economy=cheapest; verified=reliability-scored.",
       ]
         .filter(Boolean)
         .join(" "),
@@ -379,7 +370,7 @@ export async function createMcpServer(): Promise<McpServer> {
     {
       title: "Get API Stats",
       description:
-        "FREE. Show success rate and latency stats collected from x402dispatcher paid calls. Omit url to list all.",
+        "FREE. Show success-rate/latency history for paid dispatcher calls. Prefer over list_verified_apis when you need raw stats (omit url for all). Prefer over get_cashflow/get_pnl — those are money ledgers, not reliability metrics.",
       inputSchema: {
         url: z
           .string()
@@ -425,7 +416,7 @@ export async function createMcpServer(): Promise<McpServer> {
     {
       title: "List Verified APIs",
       description:
-        "FREE. List upstream APIs that currently qualify for the Verified routing tier based on success/latency history.",
+        "FREE. List only APIs that currently qualify for the Verified routing tier. Prefer over list_discovered_apis when you want reliability-filtered endpoints, not the full cache. Prefer over get_api_stats when you want the pass/fail Verified set, not per-URL metrics.",
     },
     async () => {
       const verified = listVerifiedStats();
@@ -445,7 +436,7 @@ export async function createMcpServer(): Promise<McpServer> {
     "search_bazaar",
     {
       title: "Search x402 Bazaar",
-      description: `FREE. Search the public Coinbase x402 Bazaar catalog for ${networkLabel} paid APIs at or below MAX_PRICE_USD, then cache matches for call_x402_api.`,
+      description: `FREE. Keyword/semantic search of the public Coinbase x402 Bazaar (${networkLabel}, ≤ MAX_PRICE_USD) and cache matches. Prefer over quote_route when browsing by query text, not ranked task routing. Prefer over list_discovered_apis when refreshing from the live catalog. Follow with call_x402_api (known URL/tool_name) or route_and_call (task).`,
       inputSchema: {
         query: z
           .string()
@@ -485,7 +476,7 @@ export async function createMcpServer(): Promise<McpServer> {
     "list_discovered_apis",
     {
       title: "List Discovered APIs",
-      description: `FREE. List x402dispatcher APIs currently registered from Bazaar discovery (${networkLabel}, within MAX_PRICE_USD).`,
+      description: `FREE. Dump the in-memory discovery cache (${networkLabel}, ≤ MAX_PRICE_USD) — no new Bazaar search. Prefer over search_bazaar/quote_route when you only need what is already warmed. Prefer over list_verified_apis when you want every cached API, not only Verified. Call search_bazaar first if the cache is empty.`,
     },
     async () => {
       const unique = [...new Map([...catalog.values()].map((api) => [api.url, api])).values()];
@@ -510,8 +501,10 @@ export async function createMcpServer(): Promise<McpServer> {
       title: "Call x402 API",
       description: [
         paywallOn ? `PAID inbound ${formatUsdPrice(inboundPrice)} USDC, then` : "",
-        "pay for and call a discovered Bazaar HTTP resource through the x402dispatcher treasury.",
-        "Pass tool_name from list_discovered_apis / search_bazaar, or a full resource URL.",
+        "pay and call one specific Bazaar resource by tool_name or full URL (Treasury settles upstream).",
+        "Prefer over route_and_call when you already know which API to hit.",
+        "Do not use for open-ended tasks — use route_and_call or quote_route first.",
+        "Discover names via search_bazaar or list_discovered_apis.",
       ]
         .filter(Boolean)
         .join(" "),
@@ -563,43 +556,11 @@ export async function createMcpServer(): Promise<McpServer> {
   );
 
   server.registerTool(
-    "get_mbta_predictions",
-    {
-      title: "Get MBTA Predictions",
-      description: [
-        paywallOn ? "PAID inbound $0.01, then" : "",
-        `V1 demo: settle $0.01 USDC ${networkLabel} via treasury, then return live MBTA predictions.`,
-      ]
-        .filter(Boolean)
-        .join(" "),
-      inputSchema: {
-        stop_id: z
-          .string()
-          .min(1)
-          .describe("MBTA stop ID, for example place-pktrm or 70065"),
-      },
-    },
-    paidMbta(async ({ stop_id }) => {
-      try {
-        const payment = await settleSimulatedMbtaPayment();
-        const predictions = await fetchMbtaPredictions(stop_id);
-        return toolOk({
-          inbound_paywall: await getInboundPaywallPublicStatus(),
-          payment,
-          predictions,
-        });
-      } catch (error) {
-        return toolError("get_mbta_predictions", error);
-      }
-    }),
-  );
-
-  server.registerTool(
     "get_paywall_status",
     {
       title: "Get Paywall Status",
       description:
-        "FREE. Show whether inbound x402 paywall is enabled, inbound price, network, and Merchant payTo address.",
+        "FREE. Show inbound paywall config (enabled, price, network, Merchant payTo). Prefer over get_cashflow/get_pnl when checking what callers must pay before tools run — not historical money movement.",
     },
     async () => toolOk(await getInboundPaywallPublicStatus()),
   );
@@ -609,7 +570,7 @@ export async function createMcpServer(): Promise<McpServer> {
     {
       title: "Get Cashflow",
       description:
-        "FREE (operator). List recent money-in / money-out / markup ledger entries from V7 cashflow store.",
+        "FREE (operator). List recent ledger rows (in/out/markup). Prefer over get_pnl when you need individual settlements; prefer over get_paywall_status when auditing history, not current prices.",
       inputSchema: {
         limit: z
           .number()
@@ -644,7 +605,7 @@ export async function createMcpServer(): Promise<McpServer> {
     {
       title: "Get PnL",
       description:
-        "FREE (operator). Summarize revenue (inbound), COGS (outbound), markup transfers, and gross profit from the cashflow ledger.",
+        "FREE (operator). Summarize revenue, COGS, markup, and gross profit. Prefer over get_cashflow when you want totals, not per-entry rows. Prefer over get_api_stats — this is money PnL, not latency/success stats.",
       inputSchema: {
         since: z
           .string()
@@ -672,7 +633,7 @@ export async function buildAgentJson(baseUrl: string) {
     name: "x402dispatcher",
     version: APP_VERSION,
     description:
-      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, track cashflow, and expose an operator console (V10).",
+      "x402 Bazaar dispatcher for AI agents: discover paid APIs, charge inbound USDC, route by economy/verified tier, settle upstream via CDP, track cashflow, and expose an operator console (V11).",
     homepage: origin,
     repository: "https://github.com/jegamboafuentes/x402dispatcher",
     mcp: {
@@ -705,7 +666,6 @@ export async function buildAgentJson(baseUrl: string) {
       "call_x402_api",
       "get_api_stats",
       "list_verified_apis",
-      "get_mbta_predictions",
       "get_paywall_status",
       "get_cashflow",
       "get_pnl",
@@ -720,7 +680,8 @@ export async function buildAgentJson(baseUrl: string) {
       "get_cashflow",
       "get_pnl",
     ],
-    paid_tools: ["route_and_call", "call_x402_api", "get_mbta_predictions", "dynamic bazaar tools"],
+    paid_tools: ["route_and_call", "call_x402_api"],
+    expose_dynamic_bazaar_tools: exposeDynamicBazaarTools(),
     tiers: ["economy", "verified"],
   };
 }

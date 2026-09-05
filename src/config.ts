@@ -186,6 +186,15 @@ export function isInboundPaywallEnabled(): boolean {
 }
 
 /**
+ * When true, register one MCP tool per discovered Bazaar API (floods directories like Glama).
+ * Default false — agents use search_bazaar / quote_route / route_and_call / call_x402_api instead.
+ */
+export function exposeDynamicBazaarTools(): boolean {
+  const raw = (process.env.EXPOSE_DYNAMIC_BAZAAR_TOOLS ?? "false").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "on" || raw === "yes";
+}
+
+/**
  * Flat inbound price charged to calling agents (USD).
  * Defaults to MAX_PRICE_USD so inbound never exceeds the operator spend cap.
  */

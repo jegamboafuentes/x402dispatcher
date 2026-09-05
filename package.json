@@ -1,7 +1,7 @@
 {
   "name": "x402dispatcher",
-  "version": "10.0.0",
-  "description": "Cloud-hosted x402 Bazaar dispatcher with durable SQLite cashflow ledger",
+  "version": "11.0.0",
+  "description": "Cloud-hosted x402 Bazaar dispatcher with Glama/Smithery distribution",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {

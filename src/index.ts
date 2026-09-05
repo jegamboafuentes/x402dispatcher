@@ -14,12 +14,12 @@ async function main() {
   await restoreLedger();
   await logStartupBanner("stdio");
   const count = await warmDiscovery();
-  console.error(`Discovered and registered ${count} ${getNetworkLabel()} x402 APIs`);
+  console.error(`Discovered and cached ${count} ${getNetworkLabel()} x402 APIs`);
 
   const server = await createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("x402dispatcher MCP server running on stdio (V10)");
+  console.error("x402dispatcher MCP server running on stdio (V11)");
 }
 
 main().catch((error) => {

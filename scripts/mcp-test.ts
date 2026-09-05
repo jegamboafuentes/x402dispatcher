@@ -5,7 +5,15 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TSX = path.join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
-const STOP_ID = "place-pktrm";
+
+const CORE_TOOLS = [
+  "search_bazaar",
+  "list_discovered_apis",
+  "quote_route",
+  "route_and_call",
+  "call_x402_api",
+  "get_paywall_status",
+];
 
 async function main() {
   const transport = new StdioClientTransport({
@@ -24,34 +32,23 @@ async function main() {
 
   const listed = await client.listTools();
   const names = listed.tools.map((tool) => tool.name);
-  console.log(`Tools: ${names.join(", ") || "(none)"}`);
+  console.log(`Tools (${names.length}): ${names.join(", ") || "(none)"}`);
 
-  if (!names.includes("get_mbta_predictions")) {
-    throw new Error("get_mbta_predictions is not registered");
+  for (const name of CORE_TOOLS) {
+    if (!names.includes(name)) {
+      throw new Error(`Expected core tool missing: ${name}`);
+    }
+  }
+  if (names.includes("get_mbta_predictions")) {
+    throw new Error("get_mbta_predictions should not be registered");
   }
 
-  console.log(`Calling get_mbta_predictions stop_id=${STOP_ID}...`);
-  const result = await client.callTool({
-    name: "get_mbta_predictions",
-    arguments: { stop_id: STOP_ID },
-  });
-
-  if (result.isError) {
-    throw new Error(JSON.stringify(result.content, null, 2));
+  const status = await client.callTool({ name: "get_paywall_status", arguments: {} });
+  if (status.isError) {
+    throw new Error(JSON.stringify(status.content, null, 2));
   }
 
-  const text = result.content
-    .map((part) => (part.type === "text" ? part.text : JSON.stringify(part)))
-    .join("\n");
-  const parsed = JSON.parse(text) as {
-    payment?: { transactionHash?: string; explorerUrl?: string; amount_usd?: number };
-    predictions?: { data?: unknown[] };
-  };
-
-  console.log(`Payment: ${parsed.payment?.explorerUrl ?? parsed.payment?.transactionHash}`);
-  console.log(`MBTA records: ${parsed.predictions?.data?.length ?? 0}`);
   console.log("MCP TEST PASSED");
-
   await client.close();
 }
 

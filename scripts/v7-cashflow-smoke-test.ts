@@ -27,6 +27,12 @@ dotenv.config({ quiet: true });
 
 const BASE = (process.env.PUBLIC_BASE_URL ?? "http://127.0.0.1:8080").replace(/\/$/, "");
 const BUYER_ACCOUNT_NAME = process.env.BUYER_ACCOUNT_NAME ?? "Buyer";
+const SMOKE_TASK = process.env.SMOKE_TASK?.trim() || "weather";
+const SMOKE_QUERY = process.env.SMOKE_QUERY
+  ? (JSON.parse(process.env.SMOKE_QUERY) as Record<string, unknown>)
+  : SMOKE_TASK === "weather"
+    ? { location: "Boston" }
+    : undefined;
 
 async function main() {
   console.log(`V7 cashflow smoke against ${BASE}`);
@@ -96,10 +102,11 @@ async function main() {
   });
   await paidClient.connect(transport);
 
+  console.log(`paid route task=${SMOKE_TASK}`);
   const paid = await paidClient.callTool("route_and_call", {
-    task: "weather",
+    task: SMOKE_TASK,
     tier: "economy",
-    query: { location: "Boston" },
+    ...(SMOKE_QUERY ? { query: SMOKE_QUERY } : {}),
     max_attempts: 2,
   });
   if (paid.isError) {

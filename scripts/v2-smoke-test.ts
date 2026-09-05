@@ -31,10 +31,13 @@ async function main() {
   const names = listed.tools.map((tool) => tool.name);
   console.log(`Tool count: ${names.length}`);
   console.log(
-    `Core tools present: ${["search_bazaar", "list_discovered_apis", "call_x402_api", "get_mbta_predictions"]
+    `Core tools present: ${["search_bazaar", "list_discovered_apis", "call_x402_api", "route_and_call"]
       .map((name) => `${name}=${names.includes(name)}`)
       .join(", ")}`,
   );
+  if (names.includes("get_mbta_predictions")) {
+    throw new Error("get_mbta_predictions should not be registered");
+  }
 
   const search = await client.callTool({
     name: "search_bazaar",

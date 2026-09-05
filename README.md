@@ -1,17 +1,23 @@
 
 <img src="https://github.com/jegamboafuentes/x402dispatcher/blob/main/public/images/402dispatcherLogo.png?raw=true" alt="402 dispatcher logo" width="50%">
 
+[![smithery badge](https://smithery.ai/badge/metaverse-professional/dispatcher402)](https://smithery.ai/servers/metaverse-professional/dispatcher402)
+
 **Live:** [https://402dispatcher.com/](https://402dispatcher.com/)  
-**GitHub:** [https://github.com/jegamboafuentes/x402dispatcher](https://github.com/jegamboafuentes/x402dispatcher)
+**GitHub:** [https://github.com/jegamboafuentes/x402dispatcher](https://github.com/jegamboafuentes/x402dispatcher)  
+**Glama:** [https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher](https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher)  
+**Smithery:** [https://smithery.ai/servers/metaverse-professional/dispatcher402](https://smithery.ai/servers/metaverse-professional/dispatcher402)
 
 Cloud-hosted **x402 Bazaar Aggregator** for AI agents: discover paid APIs from the Coinbase x402 Bazaar, wrap them as Model Context Protocol (MCP) tools, settle micropayments from a CDP treasury wallet, and return the upstream data to the agent.
 
-This repo is currently at **V10** (durable SQLite ledger). Custom domain, operator console, and inbound paywall are live on Base mainnet.
+This repo is currently at **V11** (public registry distribution). Custom domain, operator console, and inbound paywall are live on Base mainnet.
 
 | Surface | URL |
 |---|---|
 | Operator console | https://402dispatcher.com/ |
 | MCP (Streamable HTTP) | https://402dispatcher.com/mcp |
+| Glama connector | https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher |
+| Smithery | https://smithery.ai/servers/metaverse-professional/dispatcher402 |
 | Health | https://402dispatcher.com/health |
 | Agent discovery | https://402dispatcher.com/.well-known/agent.json |
 | LLM brief | https://402dispatcher.com/llms.txt |
@@ -49,10 +55,23 @@ Funds move on-chain (wallet → seller / Merchant). The platform does not custod
 | **V7** | Done | Cashflow ledger (money in / out / markup) via API + MCP |
 | **V8** | Done | Operator monitoring UI (Linux console at `/`) + branding/SEO |
 | **V9** | Done | Custom domain [402dispatcher.com](https://402dispatcher.com/) for public MCP / Cloud Run |
-| **V10** | **Current** | Durable SQLite ledger (GCS-backed on Cloud Run) so PnL/settlements survive restarts |
-| **V11** | Planned | Public distribution — registries (Glama/Smithery), auth/rate limits |
+| **V10** | Done | Durable SQLite ledger (GCS-backed on Cloud Run) so PnL/settlements survive restarts |
+| **V11** | **Current** | Public distribution — Glama + Smithery registry listings, slim MCP tool surface |
 
 You do **not** need a UI for agents — MCP + `agent.json` is the product surface. The UI at `/` is for **you** (operator monitoring).
+
+---
+
+## What V11 does
+
+Public MCP distribution:
+
+| Registry | Listing |
+|---|---|
+| Glama | https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher |
+| Smithery | https://smithery.ai/servers/metaverse-professional/dispatcher402 |
+
+The public MCP surface stays small (discovery + route/call + operator tools). Per-API Bazaar tools stay off unless `EXPOSE_DYNAMIC_BAZAAR_TOOLS=true`.
 
 ---
 
@@ -115,6 +134,11 @@ Point a Streamable HTTP MCP client at:
 https://402dispatcher.com/mcp
 ```
 
+Or install from a registry:
+
+- [Glama connector](https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher)
+- [Smithery](https://smithery.ai/servers/metaverse-professional/dispatcher402)
+
 Discovery documents for agents and crawlers:
 
 | File | Purpose |
@@ -122,6 +146,8 @@ Discovery documents for agents and crawlers:
 | https://402dispatcher.com/.well-known/agent.json | Machine-readable agent / MCP capabilities |
 | https://402dispatcher.com/llms.txt | Short LLM-oriented summary (llms.txt convention) |
 | https://402dispatcher.com/robots.txt | Crawl rules + sitemap |
+| https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher | Glama MCP registry listing |
+| https://smithery.ai/servers/metaverse-professional/dispatcher402 | Smithery MCP registry listing |
 | https://github.com/jegamboafuentes/x402dispatcher | Source + docs for tool registries |
 
 Paid tools require an x402-capable wallet client (inbound USDC to Merchant). Free tools (`quote_route`, `search_bazaar`, `get_pnl`, …) work without payment.
@@ -155,7 +181,7 @@ Calling agents must pay **you** (Merchant) before the proxy spends Treasury:
 | Tool | Free / Paid |
 |---|---|
 | `quote_route`, `search_bazaar`, `list_*`, `get_api_stats`, `get_paywall_status` | Free |
-| `route_and_call`, `call_x402_api`, `get_mbta_predictions`, dynamic Bazaar tools | **Paid inbound** |
+| `route_and_call`, `call_x402_api` | **Paid inbound** |
 
 Flow:
 
@@ -247,19 +273,18 @@ On startup the MCP server:
 
 1. Loads credentials from `.env`
 2. Resolves a CDP **Treasury** payer wallet
-3. Searches / lists the Coinbase Bazaar for **Base Sepolia** (`eip155:84532`) HTTP resources priced at or below `MAX_PRICE_USD`
-4. Registers each match as an MCP tool
-5. Also registers helper tools: `search_bazaar`, `list_discovered_apis`, `call_x402_api`
-6. Keeps the V1 demo tool `get_mbta_predictions`
+3. Searches / lists the Coinbase Bazaar for paid HTTP resources priced at or below `MAX_PRICE_USD`
+4. Caches matches for `search_bazaar` / `quote_route` / `call_x402_api` / `route_and_call`
+5. Registers a small fixed tool surface (not one tool per Bazaar API by default)
 
-When an agent calls a discovered tool (or `call_x402_api`):
+When an agent calls `route_and_call` or `call_x402_api`:
 
 1. Enforce `MAX_PRICE_USD` on **upstream price + markup**
 2. Pay the real x402 endpoint with `CdpX402Client` + `wrapFetchWithPayment` from `@x402/fetch`
 3. Collect the markup spread (Treasury → Merchant USDC transfer when possible)
 4. Return `{ payment, data }` to the agent
 
-V1 `get_mbta_predictions` still proves a fixed $0.01 USDC Base Sepolia transfer, then fetches free public MBTA prediction data.
+Set `EXPOSE_DYNAMIC_BAZAAR_TOOLS=true` only if you want the legacy one-tool-per-API flood (hurts Glama TDQS).
 
 ---
 
@@ -345,7 +370,8 @@ cp .env.example .env
 | `CDP_WALLET_SECRET` | Yes | CDP Wallet Secret (base64 P-256 key from Portal) |
 | `MAX_PRICE_USD` | Recommended | Hard cap before any automated spend (e.g. `0.01`) |
 | `MARKUP_BPS` | Optional | Markup in basis points (default `1000` = 10%) |
-| `DISCOVERY_LIMIT` | Optional | Max Bazaar tools to register at startup (default `40`, max `100`) |
+| `DISCOVERY_LIMIT` | Optional | Max Bazaar APIs to warm/cache at startup (default `40`, max `100`) |
+| `EXPOSE_DYNAMIC_BAZAAR_TOOLS` | Optional | `true` registers one MCP tool per discovered API (default `false`) |
 | `VERIFIED_MIN_SAMPLES` | Optional | Min successful-history calls for Verified (default `2`) |
 | `VERIFIED_MIN_SUCCESS_RATE` | Optional | Min success rate 0–1 for Verified (default `0.8`) |
 | `X402_ENV` | Optional | `development` (Base Sepolia, default) or `production` (Base mainnet, real USDC) |
@@ -425,11 +451,10 @@ Reload MCP in Cursor after clone/install. If `${workspaceFolder}` is not expande
 | `search_bazaar` | Semantic/text search of Base Sepolia Bazaar APIs under `MAX_PRICE_USD` |
 | `list_discovered_apis` | List APIs currently cached/registered |
 | `call_x402_api` | Pay + call by `tool_name` or full resource URL |
-| `get_mbta_predictions` | V1 demo: $0.01 USDC settle + live MBTA predictions |
 
-### Dynamic tools
+### Dynamic tools (optional)
 
-At startup, x402dispatcher also registers one MCP tool per discovered Bazaar resource (names like `x402_<host>_<path>_<n>`). Each accepts optional `query` / `body` and pays the upstream URL.
+By default, x402dispatcher does **not** register one MCP tool per Bazaar resource (keeps Glama / clients at a small tool count). Discovery still works via `search_bazaar` → `call_x402_api` or `route_and_call`. Set `EXPOSE_DYNAMIC_BAZAAR_TOOLS=true` to restore the legacy flood of `x402_<host>_<path>_<n>` tools.
 
 ---
 
