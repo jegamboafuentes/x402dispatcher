@@ -1,7 +1,7 @@
 
 <img src="https://github.com/jegamboafuentes/x402dispatcher/blob/main/public/images/402dispatcherLogo.png?raw=true" alt="402 dispatcher logo" width="50%">
 
-[![smithery badge](https://smithery.ai/badge/metaverse-professional/dispatcher402)](https://smithery.ai/servers/metaverse-professional/dispatcher402)
+[![402 Dispatcher MCP connector – tool definition quality and endpoint health on Glama](https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher/badges/score.svg)](https://glama.ai/mcp/connectors/com.402dispatcher/402-dispatcher)
 
 **Live:** [https://402dispatcher.com/](https://402dispatcher.com/)  
 **GitHub:** [https://github.com/jegamboafuentes/x402dispatcher](https://github.com/jegamboafuentes/x402dispatcher)  
